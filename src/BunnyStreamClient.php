@@ -113,6 +113,9 @@ class BunnyStreamClient
 
     public function upload(string $filePath, string $title, ?string $collectionId = null): array
     {
+        // Delete any existing video with same title in this collection to prevent duplicates
+        $this->deleteExistingByTitle($title, $collectionId);
+
         $video = $this->createVideo($title, $collectionId);
 
         if (!isset($video['guid'])) {
@@ -124,6 +127,35 @@ class BunnyStreamClient
         $this->uploadVideoContent($videoId, $filePath);
 
         return $video;
+    }
+
+    /**
+     * Delete any existing video with the same title in the collection.
+     * Prevents duplicates when re-uploading after a failed attempt.
+     */
+    private function deleteExistingByTitle(string $title, ?string $collectionId): void
+    {
+        try {
+            $params = ['itemsPerPage' => 100, 'search' => $title];
+            if ($collectionId) {
+                $params['collection'] = $collectionId;
+            }
+
+            $response = $this->http->get("library/{$this->libraryId}/videos", [
+                'query' => $params,
+            ]);
+
+            $data = json_decode($response->getBody()->getContents(), true, flags: JSON_THROW_ON_ERROR);
+
+            foreach ($data['items'] ?? [] as $video) {
+                if ($video['title'] === $title) {
+                    $this->delete($video['guid']);
+                }
+            }
+        } catch (\Exception $e) {
+            // Log but don't fail - duplicate prevention is best-effort
+            kirby()->log('bunny-stream')->warning('Failed to check for duplicates: ' . $e->getMessage());
+        }
     }
 
     public function getVideo(string $videoId): array
