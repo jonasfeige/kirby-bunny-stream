@@ -1,0 +1,12 @@
+# A files field preset for selecting Bunny videos
+# Only shows videos that have finished encoding
+type: files
+label: Video
+query: site.index.files.template("bunny-video").filter(file => file.isBunnyReady)
+max: 1
+layout: cards
+size: medium
+image:
+  cover: true
+  ratio: 16/9
+  back: black
