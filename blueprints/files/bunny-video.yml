@@ -1,0 +1,25 @@
+# blueprints/files/bunny-video.yml
+title: Bunny Video
+
+accept:
+  mime:
+    - video/*
+    - image/*
+
+fields:
+  customthumbnail:
+    type: files
+    label: Custom Thumbnail
+    help: Override the auto-generated thumbnail
+    max: 1
+    uploads:
+      template: image
+
+  bunnyvideoid:
+    type: hidden
+
+  bunnycollectionid:
+    type: hidden
+
+  bunnydata:
+    type: hidden

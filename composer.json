@@ -1,0 +1,29 @@
+{
+    "name": "jonasfeige/kirby-bunny-stream",
+    "description": "Kirby CMS plugin for Bunny Stream video hosting",
+    "type": "kirby-plugin",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jonas Feige"
+        }
+    ],
+    "require": {
+        "php": ">=8.1",
+        "getkirby/cms": "^4.0",
+        "guzzlehttp/guzzle": "^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "KirbyBunny\\Stream\\": "src/"
+        }
+    },
+    "extra": {
+        "kirby-cms-path": false
+    },
+    "config": {
+        "allow-plugins": {
+            "getkirby/composer-installer": true
+        }
+    }
+}
