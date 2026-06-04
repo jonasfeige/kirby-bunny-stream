@@ -1,5 +1,21 @@
-# blueprints/files/bunny-video.yml
+# Default Bunny Video blueprint
+# To customize, create your own site/blueprints/files/bunny-video.yml:
+#
+# extends: files/bunny-video-fields
+# title: My Video
+# fields:
+#   caption:
+#     type: text
+
+extends: files/bunny-video-fields
+
 title: Bunny Video
+
+image:
+  src: "{{ file.bunnyThumbnail }}"
+  icon: loader
+  cover: true
+  back: yellow-500
 
 accept:
   mime:
@@ -12,14 +28,7 @@ fields:
     label: Custom Thumbnail
     help: Override the auto-generated thumbnail
     max: 1
+    image:
+      cover: true
     uploads:
       template: image
-
-  bunnyvideoid:
-    type: hidden
-
-  bunnycollectionid:
-    type: hidden
-
-  bunnydata:
-    type: hidden

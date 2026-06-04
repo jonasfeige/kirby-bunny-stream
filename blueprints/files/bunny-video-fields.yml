@@ -1,0 +1,18 @@
+# Base fields for Bunny Video files
+# Extend this blueprint to create custom video blueprints:
+#
+# extends: files/bunny-video-fields
+# title: My Video
+# fields:
+#   caption:
+#     type: text
+
+fields:
+  bunnyvideoid:
+    type: hidden
+
+  bunnycollectionid:
+    type: hidden
+
+  bunnydata:
+    type: hidden
