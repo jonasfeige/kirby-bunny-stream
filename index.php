@@ -151,9 +151,15 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
         ],
     ],
     'hooks' => [
-        'file.create:after' => function (\Kirby\Cms\File $file) {
+        'file.create:after' => function ($file) {
+            // Safety check - file might be null in some edge cases
+            if (!$file || !method_exists($file, 'template')) {
+                return;
+            }
+
             // Only process bunny-video files
-            if ($file->template() !== 'bunny-video') {
+            $template = $file->template();
+            if ($template !== 'bunny-video') {
                 return;
             }
 
@@ -180,7 +186,10 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
             }
         },
 
-        'file.delete:before' => function (\Kirby\Cms\File $file) {
+        'file.delete:before' => function ($file) {
+            if (!$file || !method_exists($file, 'template')) {
+                return;
+            }
             if ($file->template() !== 'bunny-video') {
                 return;
             }
@@ -201,7 +210,10 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
             }
         },
 
-        'file.replace:after' => function (\Kirby\Cms\File $newFile, \Kirby\Cms\File $oldFile) {
+        'file.replace:after' => function ($newFile, $oldFile) {
+            if (!$newFile || !method_exists($newFile, 'template')) {
+                return;
+            }
             if ($newFile->template() !== 'bunny-video') {
                 return;
             }
