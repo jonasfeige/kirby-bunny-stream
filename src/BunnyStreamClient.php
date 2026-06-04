@@ -48,6 +48,14 @@ class BunnyStreamClient
         return self::$instance;
     }
 
+    /**
+     * Build a CDN URL for a video asset
+     */
+    public function cdnUrl(string $path): string
+    {
+        return "https://{$this->getCdnHostname()}{$path}";
+    }
+
     public function getLibraryId(): string
     {
         return $this->libraryId;

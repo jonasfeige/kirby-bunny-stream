@@ -3,7 +3,7 @@
 @include_once __DIR__ . '/vendor/autoload.php';
 
 use Kirby\Cms\App as Kirby;
-use KirbyBunny\Stream\VideoFile;
+use KirbyBunny\Stream\BunnyVideoPreview;
 
 function resolveBunnyCollection(\Kirby\Cms\File $file): ?string
 {
@@ -44,20 +44,25 @@ function createPlaceholderThumbnail(string $directory, string $baseName): string
 
 /**
  * Process video upload to Bunny Stream.
- * Uploads the video, creates thumbnail, replaces original video file with thumbnail.
+ * Uploads the video and updates the file's metadata with Bunny info.
+ * The original video file is kept - thumbnails are served from Bunny CDN.
  *
  * @param \Kirby\Cms\File $file The video file to process
- * @return \Kirby\Cms\File The created thumbnail file with Bunny metadata
+ * @return \Kirby\Cms\File The updated file with Bunny metadata
  * @throws \RuntimeException If upload fails or response is invalid
  */
 function processVideoUpload(\Kirby\Cms\File $file): \Kirby\Cms\File
 {
+    bunny_debug("processVideoUpload START");
     $client = \KirbyBunny\Stream\BunnyStreamClient::instance();
 
     // Get or create collection
+    bunny_debug("Getting collection...");
     $collectionId = resolveBunnyCollection($file);
+    bunny_debug("Collection ID: " . ($collectionId ?? 'null'));
 
-    // Upload to Bunny - wrap in try-catch to handle failures gracefully
+    // Upload to Bunny
+    bunny_debug("Uploading to Bunny...");
     try {
         $result = $client->upload(
             $file->root(),
@@ -65,67 +70,49 @@ function processVideoUpload(\Kirby\Cms\File $file): \Kirby\Cms\File
             $collectionId
         );
     } catch (\Exception $e) {
-        kirby()->log('bunny-stream')->error('Upload failed: ' . $e->getMessage(), [
-            'file' => $file->filename(),
-        ]);
+        bunny_debug("Upload error: " . $e->getMessage());
         throw $e;
     }
 
     // Validate upload result structure
     if (!isset($result['guid'])) {
+        bunny_debug("No GUID in response");
         throw new \RuntimeException('Bunny upload failed: missing video guid in response');
     }
 
     $videoId = $result['guid'];
+    bunny_debug("Video ID: " . $videoId);
 
-    // Try to download thumbnail, use placeholder if not ready
-    $thumbnailData = $client->downloadThumbnail($videoId);
-
-    $directory = dirname($file->root());
-    $baseName = pathinfo($file->filename(), PATHINFO_FILENAME);
-
-    if ($thumbnailData) {
-        $thumbnailPath = $directory . '/' . $baseName . '.jpg';
-        file_put_contents($thumbnailPath, $thumbnailData);
-    } else {
-        $thumbnailPath = createPlaceholderThumbnail($directory, $baseName);
-    }
-
-    // Store paths for cleanup AFTER successful file creation
-    $originalVideoPath = $file->root();
-    $originalMetaPath = preg_replace('/\.[^.]+$/', '.txt', $originalVideoPath);
-
-    // Create new thumbnail file with metadata
-    $parent = $file->parent();
-    $thumbnailFilename = $baseName . '.jpg';
-
-    // Create new file from thumbnail FIRST (before any deletions)
-    $newFile = $parent->createFile([
-        'source' => $thumbnailPath,
-        'filename' => $thumbnailFilename,
-        'template' => 'bunny-video',
-        'content' => [
-            'bunnyvideoid' => $videoId,
-            'bunnycollectionid' => $collectionId,
-            'bunnydata' => json_encode($result),
-        ],
+    // Update file metadata with Bunny info
+    bunny_debug("Updating file metadata...");
+    $updatedFile = $file->update([
+        'bunnyvideoid' => $videoId,
+        'bunnycollectionid' => $collectionId,
+        'bunnydata' => json_encode($result),
     ]);
+    bunny_debug("Metadata updated successfully");
 
-    // Only delete original files AFTER successful createFile()
-    if (file_exists($originalVideoPath)) {
-        unlink($originalVideoPath);
-    }
-    if (file_exists($originalMetaPath)) {
-        unlink($originalMetaPath);
-    }
-
-    // Clean up temp thumbnail if it was created separately
-    if (file_exists($thumbnailPath) && $thumbnailPath !== $newFile->root()) {
-        unlink($thumbnailPath);
+    // Replace original video with tiny placeholder (Bunny serves actual video)
+    $videoPath = $file->root();
+    if (file_exists($videoPath)) {
+        bunny_debug("Replacing video with placeholder: " . $videoPath);
+        // Create minimal placeholder - just enough for Kirby to recognize the file exists
+        file_put_contents($videoPath, 'BUNNY:' . $videoId);
     }
 
-    return $newFile;
+    bunny_debug("processVideoUpload END");
+    return $updatedFile;
 }
+
+// Debug logging function using Ray (if available)
+function bunny_debug($message) {
+    if (function_exists('ray')) {
+        ray($message)->label('bunny-stream');
+    }
+}
+
+// Static flag to prevent re-entrant hook calls during processing
+$GLOBALS['bunny_stream_processing'] = false;
 
 Kirby::plugin('jonasfeige/kirby-bunny-stream', [
     'options' => [
@@ -137,9 +124,158 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
     ],
     'blueprints' => [
         'files/bunny-video' => __DIR__ . '/blueprints/files/bunny-video.yml',
+        'files/bunny-video-fields' => __DIR__ . '/blueprints/files/bunny-video-fields.yml',
+        'sections/bunnyvideos' => __DIR__ . '/blueprints/sections/bunnyvideos.yml',
+        'fields/bunnyvideo' => __DIR__ . '/blueprints/fields/bunnyvideo.yml',
     ],
-    'fileModels' => [
-        'bunny-video' => VideoFile::class,
+    'filePreviews' => [
+        BunnyVideoPreview::class,
+    ],
+    'fileMethods' => [
+        'bunnyThumbnail' => function (): ?string {
+            // Check for custom thumbnail override first
+            $custom = $this->content()->customthumbnail()->toFiles()->first();
+            if ($custom) {
+                return $custom->url();
+            }
+
+            $videoId = $this->content()->bunnyvideoid()->value();
+            if (!$videoId) {
+                return null;
+            }
+
+            // Check stored status
+            $bunnyData = $this->content()->bunnydata()->value();
+            $data = $bunnyData ? json_decode($bunnyData, true) : [];
+            $status = $data['status'] ?? 0;
+
+            // Lazy poll: if not ready, check Bunny API
+            if ($status !== 4) {
+                try {
+                    $freshData = \KirbyBunny\Stream\BunnyStreamClient::instance()->getVideo($videoId);
+                    if (($freshData['status'] ?? 0) === 4) {
+                        $this->update(['bunnydata' => json_encode($freshData)]);
+                        $status = 4;
+                    }
+                } catch (\Exception $e) {
+                    // Ignore API errors
+                }
+            }
+
+            // Only return thumbnail if ready
+            if ($status !== 4) {
+                return null;
+            }
+
+            try {
+                return \KirbyBunny\Stream\BunnyStreamClient::instance()->cdnUrl("/{$videoId}/thumbnail.jpg");
+            } catch (\Exception $e) {
+                return null;
+            }
+        },
+        'bunnyStatus' => function (): int {
+            $bunnyData = $this->content()->bunnydata()->value();
+            $data = $bunnyData ? json_decode($bunnyData, true) : [];
+            return $data['status'] ?? 0;
+        },
+        'isBunnyReady' => function (): bool {
+            return $this->bunnyStatus() === 4;
+        },
+        'isBunnyProcessing' => function (): bool {
+            $status = $this->bunnyStatus();
+            return $status >= 0 && $status < 4;
+        },
+        'bunnyVideoId' => function (): ?string {
+            return $this->content()->bunnyvideoid()->value() ?: null;
+        },
+        'bunnyData' => function (): array {
+            $data = $this->content()->bunnydata()->value();
+            return $data ? json_decode($data, true) : [];
+        },
+        'bunnyWidth' => function (): ?int {
+            return $this->bunnyData()['width'] ?? null;
+        },
+        'bunnyHeight' => function (): ?int {
+            return $this->bunnyData()['height'] ?? null;
+        },
+        'bunnyAspectRatio' => function (): float {
+            $width = $this->bunnyWidth();
+            $height = $this->bunnyHeight();
+            return ($width && $height) ? $width / $height : 16 / 9;
+        },
+        'bunnyDuration' => function (): ?int {
+            return $this->bunnyData()['length'] ?? null;
+        },
+        'bunnyHlsUrl' => function (): ?string {
+            $videoId = $this->bunnyVideoId();
+            if (!$videoId) {
+                return null;
+            }
+            try {
+                return \KirbyBunny\Stream\BunnyStreamClient::instance()->cdnUrl("/{$videoId}/playlist.m3u8");
+            } catch (\Exception $e) {
+                return null;
+            }
+        },
+        'bunnyMp4Url' => function (int $resolution = 720): ?string {
+            $videoId = $this->bunnyVideoId();
+            if (!$videoId) {
+                return null;
+            }
+            try {
+                return \KirbyBunny\Stream\BunnyStreamClient::instance()->cdnUrl("/{$videoId}/play_{$resolution}p.mp4");
+            } catch (\Exception $e) {
+                return null;
+            }
+        },
+        'bunnyPanelImage' => function (): array {
+            // Check for custom thumbnail first
+            $custom = $this->content()->customthumbnail()->toFiles()->first();
+            if ($custom) {
+                return [
+                    'src' => $custom->url(),
+                    'back' => 'black',
+                    'cover' => true,
+                ];
+            }
+
+            // Show Bunny thumbnail if ready
+            if ($this->isBunnyReady()) {
+                $thumbnail = $this->bunnyThumbnail();
+                if ($thumbnail) {
+                    return [
+                        'src' => $thumbnail,
+                        'back' => 'black',
+                        'cover' => true,
+                    ];
+                }
+            }
+
+            // Still processing - show loader icon
+            return [
+                'icon' => 'loader',
+                'back' => 'yellow-500',
+                'color' => 'yellow-900',
+            ];
+        },
+    ],
+    'pagesMethods' => [
+        'bunnyVideos' => function (bool $readyOnly = true) {
+            $videos = $this->files()->template('bunny-video');
+            if ($readyOnly) {
+                return $videos->filter(fn($f) => $f->isBunnyReady());
+            }
+            return $videos;
+        },
+    ],
+    'pageMethods' => [
+        'bunnyVideos' => function (bool $readyOnly = true) {
+            $videos = $this->files()->template('bunny-video');
+            if ($readyOnly) {
+                return $videos->filter(fn($f) => $f->isBunnyReady());
+            }
+            return $videos;
+        },
     ],
     'routes' => [
         [
@@ -152,25 +288,58 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
     ],
     'hooks' => [
         'file.create:after' => function ($file) {
-            // Safety check - file might be null in some edge cases
-            if (!$file || !method_exists($file, 'template')) {
+            bunny_debug("=== HOOK START ===");
+            bunny_debug("file type: " . gettype($file));
+            bunny_debug("file class: " . (is_object($file) ? get_class($file) : 'not object'));
+            bunny_debug("processing flag: " . ($GLOBALS['bunny_stream_processing'] ? 'true' : 'false'));
+
+            // Prevent re-entrant calls (when we create the thumbnail file)
+            if ($GLOBALS['bunny_stream_processing'] === true) {
+                bunny_debug("Skipping - already processing");
                 return;
             }
+
+            // Safety check - must be a valid Kirby File object
+            if (!$file instanceof \Kirby\Cms\File) {
+                bunny_debug("Skipping - not a Kirby File instance");
+                return;
+            }
+
+            bunny_debug("Checking template...");
 
             // Only process bunny-video files
-            $template = $file->template();
-            if ($template !== 'bunny-video') {
+            try {
+                $template = $file->template();
+                bunny_debug("Template: " . ($template ?? 'null'));
+            } catch (\Throwable $e) {
+                bunny_debug("Template error: " . $e->getMessage());
                 return;
             }
 
-            // Skip if already processed (is an image = thumbnail)
-            if ($file->type() === 'image') {
+            if ($template !== 'bunny-video') {
+                bunny_debug("Skipping - not bunny-video template");
                 return;
             }
+
+            bunny_debug("Checking file type...");
+            $fileType = $file->type();
+            bunny_debug("File type: " . ($fileType ?? 'null'));
+
+            // Skip if already processed (is an image = thumbnail)
+            if ($fileType === 'image') {
+                bunny_debug("Skipping - is image (thumbnail)");
+                return;
+            }
+
+            bunny_debug("Processing video upload...");
+            // Set flag to prevent nested hook calls
+            $GLOBALS['bunny_stream_processing'] = true;
 
             try {
                 processVideoUpload($file);
+                bunny_debug("Upload complete!");
             } catch (\Exception $e) {
+                bunny_debug("Upload error: " . $e->getMessage());
                 // Clean up files directly (not via Kirby) to avoid hook recursion issues
                 $filePath = $file->root();
                 $metaPath = preg_replace('/\.[^.]+$/', '.txt', $filePath);
@@ -182,15 +351,27 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                     @unlink($metaPath);
                 }
 
+                $GLOBALS['bunny_stream_processing'] = false;
                 throw $e;
             }
+
+            $GLOBALS['bunny_stream_processing'] = false;
+            bunny_debug("=== HOOK END ===");
         },
 
         'file.delete:before' => function ($file) {
-            if (!$file || !method_exists($file, 'template')) {
+            // Safety check - must be a valid Kirby File object
+            if (!$file instanceof \Kirby\Cms\File) {
                 return;
             }
-            if ($file->template() !== 'bunny-video') {
+
+            try {
+                $template = $file->template();
+            } catch (\Throwable $e) {
+                return;
+            }
+
+            if ($template !== 'bunny-video') {
                 return;
             }
 
@@ -211,10 +392,23 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
         },
 
         'file.replace:after' => function ($newFile, $oldFile) {
-            if (!$newFile || !method_exists($newFile, 'template')) {
+            // Prevent re-entrant calls
+            if ($GLOBALS['bunny_stream_processing'] === true) {
                 return;
             }
-            if ($newFile->template() !== 'bunny-video') {
+
+            // Safety check - must be valid Kirby File objects
+            if (!$newFile instanceof \Kirby\Cms\File) {
+                return;
+            }
+
+            try {
+                $template = $newFile->template();
+            } catch (\Throwable $e) {
+                return;
+            }
+
+            if ($template !== 'bunny-video') {
                 return;
             }
 
@@ -224,7 +418,17 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
             }
 
             // Get old video ID BEFORE processing new upload
-            $oldVideoId = $oldFile->content()->bunnyvideoid()->value();
+            $oldVideoId = null;
+            if ($oldFile instanceof \Kirby\Cms\File) {
+                try {
+                    $oldVideoId = $oldFile->content()->bunnyvideoid()->value();
+                } catch (\Throwable $e) {
+                    // Ignore - old file might not have bunny data
+                }
+            }
+
+            // Set flag to prevent nested hook calls
+            $GLOBALS['bunny_stream_processing'] = true;
 
             // Upload new video to Bunny
             try {
@@ -241,8 +445,11 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                     @unlink($metaPath);
                 }
 
+                $GLOBALS['bunny_stream_processing'] = false;
                 throw $e;
             }
+
+            $GLOBALS['bunny_stream_processing'] = false;
 
             // Only delete old video from Bunny AFTER successful upload
             if ($oldVideoId) {
