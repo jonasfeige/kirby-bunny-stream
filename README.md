@@ -1,4 +1,4 @@
-# kirby-bunny-stream
+# Kirby Bunny Stream
 
 A Kirby CMS plugin for seamless video hosting via [Bunny Stream](https://bunny.net/stream/).
 
