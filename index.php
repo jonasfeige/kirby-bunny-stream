@@ -125,7 +125,6 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
     'blueprints' => [
         'files/bunny-video' => __DIR__ . '/blueprints/files/bunny-video.yml',
         'files/bunny-video-fields' => __DIR__ . '/blueprints/files/bunny-video-fields.yml',
-        'sections/bunnyvideos' => __DIR__ . '/blueprints/sections/bunnyvideos.yml',
         'fields/bunnyvideo' => __DIR__ . '/blueprints/fields/bunnyvideo.yml',
     ],
     'filePreviews' => [

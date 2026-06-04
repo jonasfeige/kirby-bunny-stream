@@ -2,6 +2,15 @@
 
 A Kirby CMS plugin for seamless video hosting via [Bunny Stream](https://bunny.net/stream/).
 
+## Features
+
+- **Automatic upload** – Videos are uploaded to Bunny Stream when added to the Panel
+- **Panel preview** – Custom file preview shows embedded player when ready, processing status otherwise
+- **Lazy status polling** – Automatically checks encoding status without requiring webhooks
+- **HLS streaming** – Serve adaptive bitrate video via Bunny's global CDN
+- **Custom thumbnails** – Override auto-generated thumbnails with your own images
+- **Extensible blueprints** – Add custom fields while keeping core functionality
+
 ## Requirements
 
 - Kirby 5.0+
@@ -79,22 +88,9 @@ If you enable these features in Bunny, thumbnails will not load in the Panel or 
 
 ## Usage
 
-### Blueprint Sections
+### Adding Videos
 
-#### Using the preset section
-
-The plugin provides a ready-to-use section that shows only videos that have finished encoding:
-
-```yaml
-sections:
-  videos:
-    extends: sections/bunnyvideos
-    label: My Videos
-```
-
-#### Using the standard files section
-
-For full control, use a regular files section with the `bunny-video` template:
+Create a files section in your page blueprint:
 
 ```yaml
 sections:
@@ -104,11 +100,15 @@ sections:
     label: Videos
 ```
 
-### Blueprint Fields
+Upload a video and it will automatically be sent to Bunny Stream. The original file is replaced with a small placeholder while Bunny handles storage and delivery.
 
-#### Using the preset field
+### Custom Thumbnails
 
-Select only videos that are ready for playback:
+The default blueprint includes a `customthumbnail` field. Upload an image to override Bunny's auto-generated thumbnail. The `bunnyThumbnail()` method automatically returns the custom thumbnail if set.
+
+### Selecting Videos
+
+Use the preset field to select only videos that have finished encoding:
 
 ```yaml
 fields:
@@ -117,9 +117,7 @@ fields:
     label: Select Video
 ```
 
-#### Using the standard files field
-
-For custom filtering or to include processing videos:
+Or use a standard files field:
 
 ```yaml
 fields:
@@ -129,60 +127,19 @@ fields:
     max: 1
 ```
 
-### Custom File Blueprints
+### Filtering by Status
 
-To add custom fields to Bunny videos, create your own blueprint that extends the base:
+Filter videos by encoding status in blueprints:
 
 ```yaml
-# site/blueprints/files/bunny-video.yml
-extends: files/bunny-video-fields
-
-title: Project Video
-
-image:
-  src: "{{ file.bunnyThumbnail }}"
-  icon: loader
-  cover: true
-  back: yellow-500
-
-accept:
-  mime:
-    - video/*
-
-fields:
-  caption:
-    type: text
-    label: Caption
-
-  credits:
-    type: text
-    label: Credits
-```
-
-The `files/bunny-video-fields` blueprint includes the required hidden fields for Bunny metadata. Your custom blueprint inherits these automatically.
-
-### Filtering Videos
-
-The plugin adds helper methods for filtering videos by encoding status.
-
-#### In blueprints (query language)
-
-Show only ready videos:
-```yaml
+# Only ready videos
 query: page.files.template("bunny-video").filter(file => file.isBunnyReady)
-```
 
-Show only processing videos:
-```yaml
+# Only processing videos
 query: page.files.template("bunny-video").filter(file => file.isBunnyProcessing)
 ```
 
-Show all bunny videos:
-```yaml
-query: page.files.template("bunny-video")
-```
-
-#### In templates (PHP)
+Or in PHP:
 
 ```php
 // Get ready videos from current page
@@ -212,14 +169,43 @@ $processing = $videos->filter(fn($f) => $f->isBunnyProcessing());
 <?php endif ?>
 ```
 
-### Available File Methods
+### Custom Blueprints
+
+To add custom fields, create your own blueprint that extends the base:
+
+```yaml
+# site/blueprints/files/bunny-video.yml
+extends: files/bunny-video-fields
+
+title: Project Video
+
+image:
+  src: "{{ file.bunnyThumbnail }}"
+  icon: loader
+  cover: true
+  back: yellow-500
+
+accept:
+  mime:
+    - video/*
+
+fields:
+  caption:
+    type: text
+  credits:
+    type: text
+```
+
+The `files/bunny-video-fields` blueprint includes the required hidden fields for Bunny metadata.
+
+## File Methods
 
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `$file->bunnyVideoId()` | `?string` | Bunny video GUID |
 | `$file->bunnyHlsUrl()` | `?string` | HLS stream URL |
 | `$file->bunnyMp4Url($resolution)` | `?string` | Direct MP4 URL (480, 720, 1080, etc.) |
-| `$file->bunnyThumbnail()` | `?string` | Thumbnail URL (only when ready) |
+| `$file->bunnyThumbnail()` | `?string` | Thumbnail URL (custom or auto) |
 | `$file->bunnyWidth()` | `?int` | Video width |
 | `$file->bunnyHeight()` | `?int` | Video height |
 | `$file->bunnyAspectRatio()` | `float` | Width / height (defaults to 16/9) |
@@ -229,14 +215,14 @@ $processing = $videos->filter(fn($f) => $f->isBunnyProcessing());
 | `$file->isBunnyReady()` | `bool` | Encoding complete (status 4)? |
 | `$file->isBunnyProcessing()` | `bool` | Still encoding (status 0-3)? |
 
-### Available Page Methods
+## Page Methods
 
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `$page->bunnyVideos()` | `Files` | Ready videos on this page |
 | `$page->bunnyVideos(false)` | `Files` | All videos including processing |
 
-### Bunny Status Codes
+## Status Codes
 
 | Code | Status |
 |------|--------|
@@ -251,8 +237,8 @@ $processing = $videos->filter(fn($f) => $f->isBunnyProcessing());
 ## Panel Preview
 
 The plugin includes a custom Panel file preview that shows:
-- **Processing**: Animated loader icon with encoding progress
-- **Ready**: Embedded video player with HLS playback
+- **Processing**: Spinner with current status
+- **Ready**: Embedded video player
 
 ## Webhook Setup (Optional)
 
@@ -262,7 +248,7 @@ For instant metadata updates when encoding completes:
 2. Add webhook URL: `https://yoursite.com/bunny-stream/webhook`
 3. Copy the webhook secret to your config
 
-Without webhooks, metadata updates lazily when the file is accessed.
+Without webhooks, metadata updates lazily when the file is accessed in the Panel.
 
 ## License
 
