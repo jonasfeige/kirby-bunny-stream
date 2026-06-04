@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace KirbyBunny\Stream;
 
 use Kirby\Cms\File;
@@ -47,7 +49,7 @@ class BunnyVideoPreview extends FilePreview
         $availableResolutions = $bunnyData['availableResolutions'] ?? '';
 
         // Lazy check: if not ready, poll Bunny API for current status
-        if ($status !== 4 && $videoId) {
+        if ($status !== BunnyStreamState::STATUS_READY && $videoId) {
             try {
                 $freshData = BunnyStreamClient::instance()->getVideo($videoId);
                 if ($freshData && isset($freshData['status'])) {
@@ -58,16 +60,16 @@ class BunnyVideoPreview extends FilePreview
                     $availableResolutions = $freshData['availableResolutions'] ?? $availableResolutions;
 
                     // Update stored metadata if status changed to ready
-                    if ($status === 4) {
+                    if ($status === BunnyStreamState::STATUS_READY) {
                         $file->update(['bunnydata' => json_encode($freshData)]);
                     }
                 }
             } catch (\Exception $e) {
-                // Ignore API errors, use cached data
+                // Use cached data on API errors
             }
         }
 
-        $isReady = $status === 4;
+        $isReady = $status === BunnyStreamState::STATUS_READY;
 
         // Build URLs from Bunny CDN
         $embedUrl = null;

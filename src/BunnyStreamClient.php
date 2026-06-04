@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace KirbyBunny\Stream;
 
 use GuzzleHttp\Client;
@@ -183,20 +185,6 @@ class BunnyStreamClient
             return true;
         } catch (GuzzleException $e) {
             throw new Exception('Failed to delete video from Bunny: ' . $e->getMessage());
-        }
-    }
-
-    public function downloadThumbnail(string $videoId): ?string
-    {
-        $cdnHostname = $this->getCdnHostname();
-        $thumbnailUrl = "https://{$cdnHostname}/{$videoId}/thumbnail.jpg";
-
-        try {
-            $response = (new Client())->get($thumbnailUrl);
-            return $response->getBody()->getContents();
-        } catch (GuzzleException $e) {
-            // Thumbnail might not be ready yet
-            return null;
         }
     }
 

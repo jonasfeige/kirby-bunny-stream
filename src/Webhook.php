@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace KirbyBunny\Stream;
 
 use Kirby\Cms\App;
@@ -32,11 +34,11 @@ class Webhook
             }
         }
 
-        // Handle encoding complete event (status 4 = Finished)
+        // Handle encoding complete event
         $status = $payload['Status'] ?? null;
         $videoId = $payload['VideoGuid'] ?? null;
 
-        if ($status === 4 && $videoId) {
+        if ($status === BunnyStreamState::STATUS_READY && $videoId) {
             self::onEncodingComplete($videoId);
         }
 
@@ -61,25 +63,14 @@ class Webhook
         }
 
         try {
+            // Refresh metadata with final video data from Bunny
             $client = BunnyStreamClient::instance();
-
-            // Download final thumbnail
-            $thumbnailData = $client->downloadThumbnail($videoId);
-            if ($thumbnailData) {
-                // Overwrite the placeholder thumbnail
-                file_put_contents($file->root(), $thumbnailData);
-            }
-
-            // Refresh metadata
             $videoData = $client->getVideo($videoId);
             $file->update([
                 'bunnydata' => json_encode($videoData),
             ]);
         } catch (\Exception $e) {
-            kirby()->log('bunny-stream')->error('Webhook processing failed', [
-                'videoId' => $videoId,
-                'error' => $e->getMessage(),
-            ]);
+            // Silently fail - webhook will be retried by Bunny
         }
     }
 
