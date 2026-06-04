@@ -15,6 +15,20 @@
         />
       </div>
 
+      <!-- Error: Show error state -->
+      <div v-else-if="isError" class="k-bunny-video-error">
+        <div class="k-bunny-error-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+        </div>
+        <span class="k-bunny-error-text">
+          {{ statusText }}
+        </span>
+      </div>
+
       <!-- Processing: Show spinner/progress -->
       <div v-else class="k-bunny-video-processing">
         <div class="k-bunny-spinner-icon">
@@ -47,6 +61,9 @@ export default {
     videoHeight: Number
   },
   computed: {
+    isError() {
+      return this.status === 5 || this.status === 6;
+    },
     statusText() {
       if (this.progress !== null && this.progress !== undefined) {
         return `Encoding... ${this.progress}%`;
@@ -117,5 +134,34 @@ export default {
 @keyframes k-bunny-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+.k-bunny-video-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  color: var(--color-red-700);
+  background: var(--color-red-100);
+  min-height: 200px;
+}
+
+.k-bunny-error-icon {
+  width: 2rem;
+  height: 2rem;
+  margin-bottom: 1rem;
+  color: var(--color-red-600);
+}
+
+.k-bunny-error-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.k-bunny-error-text {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-red-700);
 }
 </style>
