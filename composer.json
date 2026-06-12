@@ -1,6 +1,7 @@
 {
     "name": "jonasfeige/kirby-bunny-stream",
     "description": "Kirby CMS plugin for Bunny Stream video hosting",
+    "version": "1.0.2",
     "type": "kirby-plugin",
     "license": "MIT",
     "authors": [
