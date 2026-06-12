@@ -11,11 +11,16 @@ extends: files/bunny-video-fields
 
 title: Bunny Video
 
+options:
+  changeName: true
+  duplicate: true
+
 image:
   src: "{{ file.bunnyThumbnail }}"
   icon: loader
   cover: true
-  back: yellow-500
+  back: orange-500
+  color: black
 
 accept:
   mime:
