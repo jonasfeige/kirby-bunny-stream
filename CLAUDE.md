@@ -148,9 +148,16 @@ The `$GLOBALS['bunny_stream_processing']` flag prevents re-entrant calls. If you
     'libraryId' => '...',        // Required: Video library ID
     'cdnHostname' => '...',      // Required: e.g., vz-xxx.b-cdn.net
     'webhookSecret' => null,     // Optional: for webhook verification
-    'collection' => 'site',      // 'site' = one collection, 'page' = per-page
 ]
 ```
+
+### Collections
+
+Videos are automatically organized into Bunny collections, prefixed with the site slug:
+- **Site files**: `{site-slug}/site` (e.g., `bastianthiery/site`)
+- **Page files**: `{site-slug}/{page-path}` (e.g., `bastianthiery/work/some-project`)
+
+Duplicate detection (same filename) operates within each collection.
 
 ## TODO / Future Improvements
 

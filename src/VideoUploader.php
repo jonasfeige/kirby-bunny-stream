@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace KirbyBunny\Stream;
 
-use Kirby\Cms\App;
 use Kirby\Cms\File;
+use Kirby\Toolkit\Str;
 use RuntimeException;
 
 /**
@@ -16,16 +16,21 @@ class VideoUploader
     /**
      * Resolve the Bunny collection ID for a file.
      * Creates the collection if it doesn't exist.
+     *
+     * Collections are prefixed with the site slug:
+     * - Site files: "{site-slug}/site"
+     * - Page files: "{site-slug}/{page-path}" (e.g., "bastianthiery/work/some-project")
      */
-    public static function resolveCollection(File $file): ?string
+    public static function resolveCollection(File $file): string
     {
-        $mode = App::instance()->option('jonasfeige.kirby-bunny-stream.collection', 'site');
+        $parent = $file->parent();
         $client = BunnyStreamClient::instance();
+        $siteSlug = Str::slug(site()->title()->value() ?: 'kirby');
 
-        if ($mode === 'page') {
-            $name = $file->parent()->slug();
+        if ($parent instanceof \Kirby\Cms\Site) {
+            $name = $siteSlug . '/site';
         } else {
-            $name = site()->title()->value() ?: 'kirby-site';
+            $name = $siteSlug . '/' . $parent->id();
         }
 
         return $client->getOrCreateCollection($name);
