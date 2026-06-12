@@ -178,6 +178,22 @@ class BunnyStreamClient
         }
     }
 
+    /**
+     * Update video metadata on Bunny.
+     */
+    public function updateVideo(string $videoId, array $data): array
+    {
+        try {
+            $response = $this->http->post(
+                "library/{$this->libraryId}/videos/{$videoId}",
+                ['json' => $data]
+            );
+            return json_decode($response->getBody()->getContents(), true, flags: JSON_THROW_ON_ERROR);
+        } catch (GuzzleException $e) {
+            throw new Exception('Failed to update video on Bunny: ' . $e->getMessage());
+        }
+    }
+
     public function delete(string $videoId): bool
     {
         try {
@@ -212,6 +228,33 @@ class BunnyStreamClient
             return $data['guid'];
         } catch (GuzzleException $e) {
             throw new Exception('Failed to get/create collection on Bunny: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get the video count for a collection.
+     */
+    public function getCollectionVideoCount(string $collectionId): int
+    {
+        try {
+            $response = $this->http->get("library/{$this->libraryId}/collections/{$collectionId}");
+            $data = json_decode($response->getBody()->getContents(), true, flags: JSON_THROW_ON_ERROR);
+            return $data['videoCount'] ?? 0;
+        } catch (GuzzleException $e) {
+            throw new Exception('Failed to get collection from Bunny: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Delete a collection.
+     */
+    public function deleteCollection(string $collectionId): bool
+    {
+        try {
+            $this->http->delete("library/{$this->libraryId}/collections/{$collectionId}");
+            return true;
+        } catch (GuzzleException $e) {
+            throw new Exception('Failed to delete collection from Bunny: ' . $e->getMessage());
         }
     }
 }

@@ -31,7 +31,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
     ],
 
     'fileMethods' => [
-        'bunnyThumbnail' => function (): ?string {
+        'bunnyThumbnail' => function (): string|false {
             /** @var File $this */
             $custom = $this->content()->customthumbnail()->toFiles()->first();
             if ($custom) {
@@ -40,7 +40,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
 
             $videoId = $this->content()->bunnyvideoid()->value();
             if (!$videoId) {
-                return null;
+                return false;
             }
 
             $bunnyData = $this->content()->bunnydata()->value();
@@ -61,13 +61,13 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
             }
 
             if ($status !== BunnyStreamState::STATUS_READY) {
-                return null;
+                return false;
             }
 
             try {
                 return BunnyStreamClient::instance()->cdnUrl("/{$videoId}/thumbnail.jpg");
             } catch (\Exception $e) {
-                return null;
+                return false;
             }
         },
 
@@ -173,7 +173,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
             return [
                 'icon' => 'loader',
                 'back' => 'yellow-500',
-                'color' => 'yellow-900',
+                'color' => 'black',
             ];
         },
     ],
@@ -249,15 +249,56 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
             }
 
             $videoId = $file->content()->bunnyvideoid()->value();
+            $collectionId = $file->content()->bunnycollectionid()->value();
+
             if (!$videoId) {
                 return;
             }
 
-            // Attempt to delete from Bunny, ignore failures
+            $client = BunnyStreamClient::instance();
+
+            // Attempt to delete video from Bunny
             try {
-                BunnyStreamClient::instance()->delete($videoId);
+                $client->delete($videoId);
             } catch (\Exception $e) {
                 // Don't block local deletion if Bunny delete fails
+                return;
+            }
+
+            // Clean up empty collection
+            if ($collectionId) {
+                try {
+                    $videoCount = $client->getCollectionVideoCount($collectionId);
+                    if ($videoCount === 0) {
+                        $client->deleteCollection($collectionId);
+                    }
+                } catch (\Exception $e) {
+                    // Don't block deletion if collection cleanup fails
+                }
+            }
+        },
+
+        'file.changeName:after' => function (File $newFile, File $oldFile) {
+            try {
+                if ($newFile->template() !== 'bunny-video') {
+                    return;
+                }
+            } catch (\Throwable $e) {
+                return;
+            }
+
+            $videoId = $newFile->content()->bunnyvideoid()->value();
+            if (!$videoId) {
+                return;
+            }
+
+            // Update video title on Bunny to match new filename
+            try {
+                BunnyStreamClient::instance()->updateVideo($videoId, [
+                    'title' => $newFile->filename(),
+                ]);
+            } catch (\Exception $e) {
+                // Don't fail if Bunny update fails
             }
         },
 
