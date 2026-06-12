@@ -13,6 +13,32 @@ npm run build  # Production build
 ray($message)->label('bunny-stream');
 ```
 
+## Releasing a New Version
+
+This plugin is on Packagist at `jonasfeige/kirby-bunny-stream`. Packagist auto-updates from GitHub tags.
+
+```bash
+# 1. Update CHANGELOG.md with changes
+
+# 2. Commit your changes
+git add -A && git commit -m "Your commit message"
+
+# 3. Create a git tag (this is how Packagist knows the version)
+git tag 1.0.3
+
+# 4. Push commits and tags
+git push origin main --tags
+```
+
+Packagist will detect the new tag within a few minutes. No manual action needed.
+
+**Version numbers:** Use semantic versioning (MAJOR.MINOR.PATCH)
+- PATCH (1.0.x): Bug fixes, small tweaks
+- MINOR (1.x.0): New features, backwards compatible
+- MAJOR (x.0.0): Breaking changes
+
+**Do NOT put version in composer.json** — Packagist reads it from git tags only.
+
 ## Architecture Decisions
 
 ### Why fileMethods, not fileModels
