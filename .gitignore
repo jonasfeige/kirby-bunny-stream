@@ -1,5 +1,8 @@
-.claude
-vendor/
-composer.lock
+# Development
+.claude/
 node_modules/
 .DS_Store
+
+# Composer (users install dependencies themselves)
+/vendor/
+composer.lock
