@@ -119,7 +119,7 @@ sections:
   videos:
     type: files
     template: bunny-video
-    upload: false  # Disable standard upload
+    create: false  # Disable standard upload
 ```
 
 Both upload methods produce identical results – use whichever suits your needs:
