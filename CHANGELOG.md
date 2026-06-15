@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-15
+
+### Added
+- Direct upload section (`bunny-video-upload`) for large files via TUS protocol
+- Browser-to-Bunny uploads bypass PHP upload limits
+- Resumable uploads with progress tracking
+- TUS credential generation in BunnyStreamClient
+
+### Changed
+- VideoUploader now exposes `resolveCollectionForParent()` for direct uploads
+
 ## [1.0.3] - 2026-06-12
 
 ### Fixed

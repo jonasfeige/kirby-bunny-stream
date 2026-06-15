@@ -257,4 +257,33 @@ class BunnyStreamClient
             throw new Exception('Failed to delete collection from Bunny: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Generate TUS upload credentials for direct browser-to-Bunny uploads.
+     *
+     * @param string $videoId The video ID to upload to
+     * @param int $expirationSeconds Signature validity duration (default 6 hours)
+     * @return array TUS credentials (signature, expiration, libraryId, videoId, endpoint)
+     */
+    public function generateTusCredentials(string $videoId, int $expirationSeconds = 21600): array
+    {
+        $expiration = time() + $expirationSeconds;
+        $signature = hash('sha256', $this->libraryId . $this->apiKey . $expiration . $videoId);
+
+        return [
+            'signature' => $signature,
+            'expiration' => $expiration,
+            'libraryId' => $this->libraryId,
+            'videoId' => $videoId,
+            'endpoint' => 'https://video.bunnycdn.com/tusupload',
+        ];
+    }
+
+    /**
+     * Get the API key (needed for TUS authentication header).
+     */
+    public function getApiKey(): string
+    {
+        return $this->apiKey;
+    }
 }

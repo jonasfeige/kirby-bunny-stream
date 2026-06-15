@@ -5,6 +5,7 @@ A Kirby CMS plugin for seamless video hosting via [Bunny Stream](https://bunny.n
 ## Features
 
 - **Automatic upload** – Videos are uploaded to Bunny Stream when added to the Panel
+- **Direct upload** – Optional browser-to-Bunny uploads via TUS protocol for large files (bypasses PHP limits)
 - **Panel preview** – Custom file preview shows embedded player when ready, processing status otherwise
 - **Lazy status polling** – Automatically checks encoding status without requiring webhooks
 - **HLS streaming** – Serve adaptive bitrate video via Bunny's global CDN
@@ -101,6 +102,32 @@ sections:
 ```
 
 Upload a video and it will automatically be sent to Bunny Stream. The original file is replaced with a small placeholder while Bunny handles storage and delivery.
+
+### Direct Upload (Large Files)
+
+For large files that exceed PHP upload limits, use the direct upload section. This uploads directly from the browser to Bunny via the TUS protocol, bypassing your server entirely.
+
+Add to your page blueprint:
+
+```yaml
+sections:
+  video-upload:
+    type: bunny-video-upload
+    label: Upload Video
+    help: Supports files up to 10GB
+
+  videos:
+    type: files
+    template: bunny-video
+    upload: false  # Disable standard upload
+```
+
+Both upload methods produce identical results – use whichever suits your needs:
+
+| Method | Best for | Upload path |
+|--------|----------|-------------|
+| Standard (files section) | Small files, familiar UX | Browser → Server → Bunny |
+| Direct (bunny-video-upload) | Large files (100MB+) | Browser → Bunny (TUS) |
 
 ### Custom Thumbnails
 

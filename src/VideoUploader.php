@@ -24,6 +24,17 @@ class VideoUploader
     public static function resolveCollection(File $file): string
     {
         $parent = $file->parent();
+        return self::resolveCollectionForParent($parent);
+    }
+
+    /**
+     * Resolve the Bunny collection ID for a parent (Site or Page).
+     * Creates the collection if it doesn't exist.
+     *
+     * @param \Kirby\Cms\Site|\Kirby\Cms\Page $parent
+     */
+    public static function resolveCollectionForParent($parent): string
+    {
         $client = BunnyStreamClient::instance();
         $siteSlug = Str::slug(site()->title()->value() ?: 'kirby');
 

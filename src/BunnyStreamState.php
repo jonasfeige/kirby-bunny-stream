@@ -14,6 +14,11 @@ class BunnyStreamState
      */
     public static bool $processing = false;
 
+    /**
+     * Flag to indicate direct upload is in progress (skip normal upload hook).
+     */
+    public static bool $directUploadInProgress = false;
+
     // Bunny video status codes
     public const STATUS_QUEUED = 0;
     public const STATUS_PROCESSING = 1;

@@ -69,14 +69,19 @@ Users create their own `site/blueprints/files/bunny-video.yml` extending `files/
 ## Key Files
 
 ```
-index.php                     # Plugin registration, hooks, fileMethods
+index.php                     # Plugin registration, hooks, fileMethods, API routes
 src/
-  BunnyStreamClient.php       # API client (upload, delete, getVideo, cdnUrl)
+  BunnyStreamClient.php       # API client (upload, delete, getVideo, cdnUrl, TUS credentials)
+  BunnyStreamState.php        # State flags to prevent re-entrant processing
   BunnyVideoPreview.php       # Panel file preview (accepts, props, details)
+  VideoUploader.php           # Upload logic, collection resolution
   Webhook.php                 # Optional webhook handler for instant updates
   components/
     BunnyVideoPreview.vue     # Vue component for Panel preview
+    BunnyVideoUpload.vue      # Vue component for direct TUS upload section
   index.js                    # Vue component registration
+sections/
+  bunny-video-upload.php      # Direct upload section definition
 blueprints/
   files/
     bunny-video.yml           # Default file blueprint
@@ -87,14 +92,37 @@ blueprints/
 
 ## How It Works
 
-### Upload Flow
+### Standard Upload Flow (Server-Side)
 
 1. User uploads video in Panel → `file.create:after` hook fires
 2. Hook checks: is template `bunny-video`? is type `video`?
-3. `processVideoUpload()` calls `BunnyStreamClient::upload()`
+3. `VideoUploader::process()` calls `BunnyStreamClient::upload()`
 4. On success: update file metadata with `bunnyvideoid`, `bunnydata`
 5. Replace original video file with tiny placeholder (`BUNNY:{videoId}`)
 6. Bunny handles storage and CDN delivery
+
+### Direct Upload Flow (Browser-Side TUS)
+
+For large files that exceed PHP upload limits, use the `bunny-video-upload` section:
+
+1. User drops/selects video in Panel section
+2. Vue component calls `POST /api/bunny-stream/init-upload`
+   - Creates video record on Bunny
+   - Returns TUS credentials (signature, expiration, videoId)
+3. Browser uploads directly to Bunny via TUS protocol (`tus-js-client`)
+   - Resumable, chunked uploads (5MB chunks)
+   - Progress tracking in UI
+4. On completion, Vue calls `POST /api/bunny-stream/finalize-upload`
+   - Creates Kirby file record with placeholder content
+   - Writes directly to filesystem (bypasses MIME validation)
+5. File appears in standard files section
+
+**TUS Credentials**: Generated via `BunnyStreamClient::generateTusCredentials()`:
+```php
+$signature = hash('sha256', $libraryId . $apiKey . $expiration . $videoId);
+```
+
+Both upload methods produce identical file records. Users can have both methods available on the same page.
 
 ### Status Polling (Lazy)
 
@@ -164,7 +192,7 @@ Status not updating. Check:
 
 ### Hook runs multiple times
 
-The `$GLOBALS['bunny_stream_processing']` flag prevents re-entrant calls. If you see duplicate processing, check that flag is being set/unset correctly.
+The `BunnyStreamState::$processing` flag prevents re-entrant calls. If you see duplicate processing, check that flag is being set/unset correctly. The `$directUploadInProgress` flag prevents hooks from running during direct upload finalization.
 
 ## Config Options
 

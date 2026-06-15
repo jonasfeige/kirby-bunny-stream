@@ -26,6 +26,10 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
         'fields/bunnyvideo' => __DIR__ . '/blueprints/fields/bunnyvideo.yml',
     ],
 
+    'sections' => [
+        'bunny-video-upload' => require __DIR__ . '/sections/bunny-video-upload.php',
+    ],
+
     'filePreviews' => [
         BunnyVideoPreview::class,
     ],
@@ -208,9 +212,131 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
         ],
     ],
 
+    'api' => [
+        'routes' => [
+                        [
+                'pattern' => 'bunny-stream/init-upload',
+                'method' => 'POST',
+                'action' => function () {
+                    $kirby = kirby();
+                    $request = $kirby->request();
+                    $filename = $request->body()->get('filename');
+                    $parentType = $request->body()->get('parentType');
+                    $parentId = $request->body()->get('parentId');
+
+                    if (!$filename) {
+                        throw new \Exception('Filename is required');
+                    }
+
+                    // Resolve parent
+                    if ($parentType === 'site') {
+                        $parent = site();
+                    } else {
+                        $parent = page($parentId);
+                        if (!$parent) {
+                            throw new \Exception('Parent page not found');
+                        }
+                    }
+
+                    $client = BunnyStreamClient::instance();
+
+                    // Resolve collection
+                    $collectionId = VideoUploader::resolveCollectionForParent($parent);
+
+                    // Create video on Bunny
+                    $video = $client->createVideo($filename, $collectionId);
+
+                    if (!isset($video['guid'])) {
+                        throw new \Exception('Failed to create video on Bunny');
+                    }
+
+                    $videoId = $video['guid'];
+
+                    // Generate TUS credentials
+                    $tusCredentials = $client->generateTusCredentials($videoId);
+
+                    return [
+                        'videoId' => $videoId,
+                        'collectionId' => $collectionId,
+                        'tusCredentials' => $tusCredentials,
+                    ];
+                },
+            ],
+            [
+                'pattern' => 'bunny-stream/finalize-upload',
+                'method' => 'POST',
+                'action' => function () {
+                    $kirby = kirby();
+                    $request = $kirby->request();
+                    $videoId = $request->body()->get('videoId');
+                    $collectionId = $request->body()->get('collectionId');
+                    $filename = $request->body()->get('filename');
+                    $parentType = $request->body()->get('parentType');
+                    $parentId = $request->body()->get('parentId');
+
+                    if (!$videoId || !$filename) {
+                        throw new \Exception('videoId and filename are required');
+                    }
+
+                    // Resolve parent
+                    if ($parentType === 'site') {
+                        $parent = site();
+                    } else {
+                        $parent = page($parentId);
+                        if (!$parent) {
+                            throw new \Exception('Parent page not found');
+                        }
+                    }
+
+                    // Ensure filename has video extension (use .mp4 as default)
+                    $extension = pathinfo($filename, PATHINFO_EXTENSION);
+                    if (!$extension) {
+                        $filename .= '.mp4';
+                    }
+
+                    // Sanitize filename for Kirby
+                    $filename = \Kirby\Toolkit\F::safeName($filename);
+
+                    // Create files directly in filesystem (bypasses mime validation)
+                    $contentDir = $parent->root();
+                    $filePath = $contentDir . '/' . $filename;
+                    $metaPath = $contentDir . '/' . pathinfo($filename, PATHINFO_FILENAME) . '.' . pathinfo($filename, PATHINFO_EXTENSION) . '.txt';
+
+                    // Write placeholder video file
+                    $placeholderContent = 'BUNNY:' . $videoId;
+                    file_put_contents($filePath, $placeholderContent);
+
+                    // Write metadata file (same format as Kirby content files)
+                    // Note: bunnydata is left empty - will be populated lazily when video is ready
+                    $metaContent = "Bunnyvideoid: {$videoId}\n\n----\n\nBunnycollectionid: {$collectionId}\n\n----\n\nBunnydata: \n\n----\n\nTemplate: bunny-video";
+                    file_put_contents($metaPath, $metaContent);
+
+                    // Clear Kirby's cache so it picks up the new file
+                    $kirby->impersonate('kirby');
+
+                    // Get the file through Kirby to confirm it exists
+                    $file = $parent->file($filename);
+
+                    if (!$file) {
+                        throw new \Exception('Failed to create file');
+                    }
+
+                    return [
+                        'success' => true,
+                        'file' => [
+                            'filename' => $file->filename(),
+                            'id' => $file->id(),
+                        ],
+                    ];
+                },
+            ],
+        ],
+    ],
+
     'hooks' => [
         'file.create:after' => function (File $file) {
-            if (BunnyStreamState::$processing) {
+            // Skip if already processing or if this is a direct upload
+            if (BunnyStreamState::$processing || BunnyStreamState::$directUploadInProgress) {
                 return;
             }
 
