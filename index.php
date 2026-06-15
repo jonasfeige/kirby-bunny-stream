@@ -180,6 +180,53 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                 'color' => 'black',
             ];
         },
+
+        'bunnyStatusInfo' => function (): ?string {
+            /** @var File $this */
+            $videoId = $this->bunnyVideoId();
+            if (!$videoId) {
+                return null;
+            }
+
+            $data = $this->bunnyData();
+            $status = $data['status'] ?? null;
+
+            // Fetch fresh data from API if not ready (read-only, no save)
+            if ($status === null || $status !== BunnyStreamState::STATUS_READY) {
+                try {
+                    $freshData = BunnyStreamClient::instance()->getVideo($videoId);
+                    if ($freshData) {
+                        $data = $freshData;
+                        $status = $freshData['status'] ?? 0;
+                    }
+                } catch (\Exception $e) {
+                    // Use cached data on error
+                }
+            }
+
+            // Ready - no info needed
+            if ($status === BunnyStreamState::STATUS_READY) {
+                return null;
+            }
+
+            // Show progress if encoding
+            $progress = $data['encodeProgress'] ?? null;
+            if ($progress !== null && $status === BunnyStreamState::STATUS_ENCODING) {
+                return "Encoding {$progress}%";
+            }
+
+            // Map other statuses
+            $statusMap = [
+                BunnyStreamState::STATUS_QUEUED => 'Queued',
+                BunnyStreamState::STATUS_PROCESSING => 'Processing',
+                BunnyStreamState::STATUS_ENCODING => 'Encoding',
+                BunnyStreamState::STATUS_FINISHED => 'Finishing',
+                BunnyStreamState::STATUS_ERROR => 'Error',
+                BunnyStreamState::STATUS_UPLOAD_FAILED => 'Upload failed',
+            ];
+
+            return $statusMap[$status] ?? null;
+        },
     ],
 
     'pagesMethods' => [

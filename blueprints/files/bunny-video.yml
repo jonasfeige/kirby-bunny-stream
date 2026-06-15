@@ -11,6 +11,8 @@ extends: files/bunny-video-fields
 
 title: Bunny Video
 
+info: "{{ file.bunnyStatusInfo }}"
+
 options:
   changeName: true
   duplicate: true
