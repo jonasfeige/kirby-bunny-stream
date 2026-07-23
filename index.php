@@ -377,6 +377,42 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                     ];
                 },
             ],
+            [
+                'pattern' => 'bunny-stream/cancel-upload',
+                'method' => 'POST',
+                'action' => function () {
+                    $data = kirby()->request()->body()->toArray();
+                    $videoId = $data['videoId'] ?? null;
+                    $collectionId = $data['collectionId'] ?? null;
+
+                    if (!$videoId) {
+                        return ['success' => false, 'error' => 'Missing videoId'];
+                    }
+
+                    try {
+                        $client = BunnyStreamClient::instance();
+
+                        // Delete video from Bunny
+                        $client->delete($videoId);
+
+                        // Clean up empty collection (same logic as file.delete:before)
+                        if ($collectionId) {
+                            try {
+                                $videoCount = $client->getCollectionVideoCount($collectionId);
+                                if ($videoCount === 0) {
+                                    $client->deleteCollection($collectionId);
+                                }
+                            } catch (\Exception $e) {
+                                // Don't fail if collection cleanup fails
+                            }
+                        }
+
+                        return ['success' => true];
+                    } catch (\Exception $e) {
+                        return ['success' => false, 'error' => $e->getMessage()];
+                    }
+                },
+            ],
         ],
     ],
 

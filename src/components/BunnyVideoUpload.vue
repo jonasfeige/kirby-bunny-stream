@@ -339,10 +339,25 @@ export default {
       this.processQueue();
     },
 
-    cancelUpload(upload) {
+    async cancelUpload(upload) {
+      // Abort the TUS upload
       if (upload.tusUpload) {
         upload.tusUpload.abort();
       }
+
+      // Delete the video from Bunny if we have credentials
+      if (upload.videoId) {
+        try {
+          await this.$api.post(this.apiEndpoint + '/cancel-upload', {
+            videoId: upload.videoId,
+            collectionId: upload.collectionId
+          });
+        } catch (e) {
+          // Don't block UI on cleanup failure
+          console.error('Failed to clean up cancelled upload:', e);
+        }
+      }
+
       upload.status = 'error';
       upload.error = 'Cancelled';
       this.processQueue();
