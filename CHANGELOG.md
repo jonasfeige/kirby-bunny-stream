@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.4] - 2026-09-03
 
 ### Fixed
-- Fix "Parent page not found" error when uploading videos on draft pages
+- Fix "Parent page not found" error when uploading videos on draft pages (use `kirby()->page()` instead of `page()` helper)
 
 ## [1.1.3] - 2026-07-23
 
