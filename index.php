@@ -279,7 +279,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                     if ($parentType === 'site') {
                         $parent = site();
                     } else {
-                        $parent = page($parentId);
+                        $parent = site()->findPageOrDraft($parentId);
                         if (!$parent) {
                             throw new \Exception('Parent page not found');
                         }
@@ -329,7 +329,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                     if ($parentType === 'site') {
                         $parent = site();
                     } else {
-                        $parent = page($parentId);
+                        $parent = site()->findPageOrDraft($parentId);
                         if (!$parent) {
                             throw new \Exception('Parent page not found');
                         }
