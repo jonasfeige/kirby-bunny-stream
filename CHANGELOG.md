@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-09-09
+
+### Added
+- Configurable `collection` option for file blueprints and upload sections
+- Support for Kirby query syntax in collection option (e.g., `{{ page.parent.id }}`)
+- New `collectionPrefix` config option (string or Closure) for global collection prefixes
+
+### Changed
+- Removed automatic site slug prefix from collection names (use `collectionPrefix` if needed)
+- Duplicate detection now normalizes filenames for comparison (handles "Arial View.mp4" vs "arial-view.mp4")
+- Direct upload duplicate check lists all videos instead of using search (avoids index delay)
+
+### Fixed
+- Duplicate detection now works for newly uploaded/processing videos
+- API errors during duplicate check no longer block uploads (fail open)
+
 ## [1.1.5] - 2026-09-03
 
 ### Fixed

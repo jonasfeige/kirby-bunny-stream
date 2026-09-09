@@ -16,6 +16,11 @@ return [
         'max' => function ($max = null) {
             return $max;
         },
+        // Custom collection path (static string or Kirby query)
+        // Examples: "my-collection", "{{ page.parent.id }}"
+        'collection' => function ($collection = null) {
+            return $collection;
+        },
     ],
     'computed' => [
         'parentType' => function () {

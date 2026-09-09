@@ -140,31 +140,53 @@ class BunnyStreamClient
     }
 
     /**
-     * Delete any existing video with the same title in the collection.
-     * Prevents duplicates when re-uploading after a failed attempt.
+     * Check if a video with the given title exists in the collection.
+     * Lists all videos in the collection (search index may be delayed for new uploads).
+     *
+     * @return array|null The existing video data, or null if not found
      */
-    private function deleteExistingByTitle(string $title, ?string $collectionId): void
+    public function findVideoByTitle(string $title, ?string $collectionId): ?array
     {
-        try {
-            $params = ['itemsPerPage' => 100, 'search' => $title];
-            if ($collectionId) {
-                $params['collection'] = $collectionId;
-            }
+        if (!$collectionId) {
+            return null;
+        }
 
+        try {
+            // List all videos in the collection (don't use search - index may be delayed)
             $response = $this->http->get("library/{$this->libraryId}/videos", [
-                'query' => $params,
+                'query' => ['itemsPerPage' => 1000, 'collection' => $collectionId],
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true, flags: JSON_THROW_ON_ERROR);
 
+            // Normalize the search title (Kirby sanitizes filenames)
+            $normalizedTitle = \Kirby\Toolkit\F::safeName($title);
+
             foreach ($data['items'] ?? [] as $video) {
-                if ($video['title'] === $title) {
-                    $this->delete($video['guid']);
+                // Normalize the Bunny title for comparison
+                $normalizedVideoTitle = \Kirby\Toolkit\F::safeName($video['title']);
+                if ($normalizedVideoTitle === $normalizedTitle) {
+                    return $video;
                 }
             }
         } catch (\Exception $e) {
-            // Log but don't fail - duplicate prevention is best-effort
-            kirby()->log('bunny-stream')->warning('Failed to check for duplicates: ' . $e->getMessage());
+            // If API check fails, allow upload to proceed (fail open)
+            // This prevents brief API outages from blocking all uploads
+        }
+
+        return null;
+    }
+
+    /**
+     * Delete any existing video with the same title in the collection.
+     * Prevents duplicates when re-uploading after a failed attempt.
+     * Used by upload() for server-side uploads only.
+     */
+    private function deleteExistingByTitle(string $title, ?string $collectionId): void
+    {
+        $existing = $this->findVideoByTitle($title, $collectionId);
+        if ($existing) {
+            $this->delete($existing['guid']);
         }
     }
 

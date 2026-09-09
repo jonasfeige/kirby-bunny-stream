@@ -202,16 +202,49 @@ The `BunnyStreamState::$processing` flag prevents re-entrant calls. If you see d
     'libraryId' => '...',        // Required: Video library ID
     'cdnHostname' => '...',      // Required: e.g., vz-xxx.b-cdn.net
     'webhookSecret' => null,     // Optional: for webhook verification
+    'collectionPrefix' => null,  // Optional: prefix for collection names (see below)
 ]
 ```
 
 ### Collections
 
-Videos are automatically organized into Bunny collections, prefixed with the site slug:
-- **Site files**: `{site-slug}/site` (e.g., `bastianthiery/site`)
-- **Page files**: `{site-slug}/{page-path}` (e.g., `bastianthiery/work/some-project`)
+Videos are organized into Bunny collections based on their parent:
+- **Site files**: `site`
+- **Page files**: `{page-id}` (e.g., `work/some-project`)
 
-Duplicate detection (same filename) operates within each collection.
+#### Custom Collection (per blueprint/section)
+
+Use the `collection` option in file blueprints or upload sections:
+
+```yaml
+# Static collection name
+collection: "all-videos"
+
+# Kirby query syntax
+collection: "{{ page.parent.id }}"
+```
+
+#### Collection Prefix (global config)
+
+Add a prefix to all collection names:
+
+```php
+// Static prefix
+'collectionPrefix' => 'my-site',
+// Result: my-site/work/some-project
+
+// Dynamic prefix via closure
+'collectionPrefix' => function ($parent) {
+    return site()->title()->value();
+},
+// Result: My Site Name/work/some-project
+```
+
+#### Duplicate Detection
+
+Duplicate detection (same filename) operates within each collection:
+- **Direct upload (TUS)**: Blocks upload with error if duplicate exists
+- **Standard upload**: Replaces existing video (for re-upload after failures)
 
 ## TODO / Future Improvements
 

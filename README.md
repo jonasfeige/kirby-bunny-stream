@@ -40,7 +40,7 @@ return [
         'libraryId' => 'your-library-id',        // Required
         'cdnHostname' => 'vz-xxx.b-cdn.net',     // Required: from Bunny dashboard
         'webhookSecret' => null,                 // Optional
-        'collection' => 'site',                  // 'site' or 'page'
+        'collectionPrefix' => null,              // Optional: see Collections section
     ],
 ];
 ```
@@ -53,7 +53,53 @@ return [
 | `libraryId` | string | `null` | Video library ID (required) |
 | `cdnHostname` | string | `null` | CDN hostname from Bunny dashboard (required) |
 | `webhookSecret` | string | `null` | Webhook signature verification secret |
-| `collection` | string | `'site'` | Video organization: `'site'` or `'page'` |
+| `collectionPrefix` | string\|Closure | `null` | Prefix for Bunny collection names (see below) |
+
+### Collections
+
+Videos are organized into Bunny collections based on their parent:
+- **Site files**: `site`
+- **Page files**: `{page-id}` (e.g., `work/project-name`)
+
+#### Custom Collection (per blueprint/section)
+
+Override the default collection using the `collection` option:
+
+```yaml
+# In file blueprint (site/blueprints/files/my-video.yml)
+extends: files/bunny-video-fields
+options:
+  collection: "{{ page.parent.id }}"
+
+# In upload section
+sections:
+  upload:
+    type: bunny-video-upload
+    collection: "all-videos"
+```
+
+Supports static strings or Kirby query syntax (`{{ page.parent.id }}`).
+
+#### Collection Prefix (global)
+
+Add a prefix to all collection names via config:
+
+```php
+// Static prefix
+'collectionPrefix' => 'my-site',
+// Result: my-site/work/project-name
+
+// Dynamic prefix
+'collectionPrefix' => function ($parent) {
+    return site()->title()->value();
+},
+```
+
+#### Duplicate Handling
+
+Duplicate filenames within a collection are handled differently:
+- **Direct upload (TUS)**: Blocks upload with error message
+- **Standard upload**: Replaces existing video (useful for re-uploads after failures)
 
 ## Bunny Security Settings
 

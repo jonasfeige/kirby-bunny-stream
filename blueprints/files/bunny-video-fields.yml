@@ -6,6 +6,29 @@
 # fields:
 #   caption:
 #     type: text
+#
+# Options:
+#   collection: Custom Bunny collection path (static string or Kirby query)
+#               Videos are organized into collections on Bunny Stream.
+#               Examples:
+#                 - "my-collection" (static collection name)
+#                 - "{{ page.parent.id }}" (query - uses parent page ID)
+#                 - "{{ page.slug }}" (query - uses current page slug)
+#               Default: "{page-id}" for pages, "site" for site files
+#               Note: The collectionPrefix config option is prepended if set.
+#
+# Example with custom collection:
+#
+# extends: files/bunny-video-fields
+# title: Course Video
+# options:
+#   collection: "{{ page.parent.id }}"
+#
+# Duplicate handling:
+#   - Direct upload (bunny-video-upload section): Blocks upload if a video with
+#     the same filename already exists in the collection. Shows an error message.
+#   - Standard upload (Kirby files section): Replaces existing video with the
+#     same filename. Useful for re-uploading after failed attempts.
 
 fields:
   bunnyvideoid:

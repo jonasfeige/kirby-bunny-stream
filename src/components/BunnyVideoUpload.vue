@@ -144,7 +144,9 @@ export default {
       // Data loaded from section API
       parentType: 'page',
       parentId: null,
-      apiEndpoint: 'bunny-stream'
+      apiEndpoint: 'bunny-stream',
+      // Collection option loaded from section
+      collectionOption: null
     };
   },
 
@@ -169,6 +171,7 @@ export default {
         this.parentType = response.parentType ?? 'page';
         this.parentId = response.parentId ?? null;
         this.apiEndpoint = response.apiEndpoint ?? 'bunny-stream';
+        this.collectionOption = response.collection ?? null;
       } catch (error) {
         console.error('Failed to load section data:', error);
       }
@@ -249,7 +252,8 @@ export default {
         const initResponse = await this.$api.post(this.apiEndpoint + '/init-upload', {
           filename: upload.filename,
           parentType: this.parentType,
-          parentId: this.parentId
+          parentId: this.parentId,
+          collection: this.collectionOption
         });
 
         if (!initResponse.videoId || !initResponse.tusCredentials) {

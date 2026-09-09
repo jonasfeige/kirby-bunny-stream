@@ -17,7 +17,12 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
         'libraryId' => null,
         'cdnHostname' => null,
         'webhookSecret' => null,
-        'collection' => 'site', // 'site' or 'page'
+        // Optional prefix for collection names. Can be:
+        // - null: no prefix (default)
+        // - string: static prefix (e.g., 'my-site')
+        // - Closure: dynamic prefix, receives $parent (Page|Site) as argument
+        //   Example: function ($parent) { return site()->title()->value(); }
+        'collectionPrefix' => null,
     ],
 
     'blueprints' => [
@@ -270,6 +275,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                     $filename = $request->body()->get('filename');
                     $parentType = $request->body()->get('parentType');
                     $parentId = $request->body()->get('parentId');
+                    $collectionOption = $request->body()->get('collection');
 
                     if (!$filename) {
                         throw new \Exception('Filename is required');
@@ -286,10 +292,23 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                         }
                     }
 
+                    // Sanitize filename first (same as finalize-upload)
+                    $extension = pathinfo($filename, PATHINFO_EXTENSION);
+                    if (!$extension) {
+                        $filename .= '.mp4';
+                    }
+                    $filename = \Kirby\Toolkit\F::safeName($filename);
+
                     $client = BunnyStreamClient::instance();
 
-                    // Resolve collection
-                    $collectionId = VideoUploader::resolveCollectionForParent($parent);
+                    // Resolve collection (with optional custom setting)
+                    $collectionId = VideoUploader::resolveCollectionWithOption($parent, $collectionOption);
+
+                    // Check if a video with this title already exists in the Bunny collection
+                    $existingVideo = $client->findVideoByTitle($filename, $collectionId);
+                    if ($existingVideo) {
+                        throw new \Exception("A video named '{$filename}' already exists in this collection. Please use a different filename.");
+                    }
 
                     // Create video on Bunny
                     $video = $client->createVideo($filename, $collectionId);
