@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-09-23
+
+### Fixed
+- Aspect ratio caching issue: `bunnyAspectRatio()` now returns `null` instead of `16/9` fallback when dimensions unavailable
+- Added `bunnyRefreshIfNeeded()` to trigger API polling when video status isn't ready
+- Dimension methods (`bunnyWidth()`, `bunnyHeight()`, `bunnyAspectRatio()`) now auto-refresh stale data
+
+### Changed
+- `bunnyData()` now automatically polls Bunny API if video isn't ready yet
+- Simplified `bunnyThumbnail()` and `bunnyStatusInfo()` by removing duplicate polling logic
+
 ## [1.2.1] - 2026-09-23
 
 ### Fixed

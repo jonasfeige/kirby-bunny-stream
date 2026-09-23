@@ -47,29 +47,13 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                 return $custom->url();
             }
 
-            $videoId = $this->content()->bunnyvideoid()->value();
+            $videoId = $this->bunnyVideoId();
             if (!$videoId) {
                 return false;
             }
 
-            $bunnyData = $this->content()->bunnydata()->value();
-            $data = $bunnyData ? json_decode($bunnyData, true) : [];
-            $status = $data['status'] ?? 0;
-
-            // Lazy poll: if not ready, check Bunny API
-            if ($status !== BunnyStreamState::STATUS_READY) {
-                try {
-                    $freshData = BunnyStreamClient::instance()->getVideo($videoId);
-                    if (($freshData['status'] ?? 0) === BunnyStreamState::STATUS_READY) {
-                        $this->update(['bunnydata' => json_encode($freshData)]);
-                        $status = BunnyStreamState::STATUS_READY;
-                    }
-                } catch (\Exception $e) {
-                    // Use cached data on error
-                }
-            }
-
-            if ($status !== BunnyStreamState::STATUS_READY) {
+            // bunnyData() triggers refresh if not ready
+            if (!$this->isBunnyReady()) {
                 return false;
             }
 
@@ -82,9 +66,8 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
 
         'bunnyStatus' => function (): int {
             /** @var File $this */
-            $bunnyData = $this->content()->bunnydata()->value();
-            $data = $bunnyData ? json_decode($bunnyData, true) : [];
-            return $data['status'] ?? 0;
+            // bunnyData() triggers refresh if not ready
+            return $this->bunnyData()['status'] ?? 0;
         },
 
         'isBunnyReady' => function (): bool {
@@ -103,8 +86,43 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
             return $this->content()->bunnyvideoid()->value() ?: null;
         },
 
+        'bunnyRefreshIfNeeded' => function (): void {
+            /** @var File $this */
+            $videoId = $this->bunnyVideoId();
+            if (!$videoId) {
+                return;
+            }
+
+            $bunnyData = $this->content()->bunnydata()->value();
+            $data = $bunnyData ? json_decode($bunnyData, true) : [];
+            $status = $data['status'] ?? 0;
+
+            // Already ready, no refresh needed
+            if ($status === BunnyStreamState::STATUS_READY) {
+                return;
+            }
+
+            // Error states - don't keep polling
+            if ($status >= BunnyStreamState::STATUS_ERROR) {
+                return;
+            }
+
+            try {
+                $freshData = BunnyStreamClient::instance()->getVideo($videoId);
+                if ($freshData && isset($freshData['status'])) {
+                    // Update stored metadata if status changed
+                    if ($freshData['status'] !== $status) {
+                        $this->update(['bunnydata' => json_encode($freshData)]);
+                    }
+                }
+            } catch (\Exception $e) {
+                // Silently fail, use cached data
+            }
+        },
+
         'bunnyData' => function (): array {
             /** @var File $this */
+            $this->bunnyRefreshIfNeeded();
             $data = $this->content()->bunnydata()->value();
             return $data ? json_decode($data, true) : [];
         },
@@ -119,11 +137,11 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
             return $this->bunnyData()['height'] ?? null;
         },
 
-        'bunnyAspectRatio' => function (): float {
+        'bunnyAspectRatio' => function (): ?float {
             /** @var File $this */
             $width = $this->bunnyWidth();
             $height = $this->bunnyHeight();
-            return ($width && $height) ? $width / $height : 16 / 9;
+            return ($width && $height) ? $width / $height : null;
         },
 
         'bunnyDuration' => function (): ?int {
@@ -188,26 +206,13 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
 
         'bunnyStatusInfo' => function (): ?string {
             /** @var File $this */
-            $videoId = $this->bunnyVideoId();
-            if (!$videoId) {
+            if (!$this->bunnyVideoId()) {
                 return null;
             }
 
+            // bunnyData() triggers refresh if not ready
             $data = $this->bunnyData();
-            $status = $data['status'] ?? null;
-
-            // Fetch fresh data from API if not ready (read-only, no save)
-            if ($status === null || $status !== BunnyStreamState::STATUS_READY) {
-                try {
-                    $freshData = BunnyStreamClient::instance()->getVideo($videoId);
-                    if ($freshData) {
-                        $data = $freshData;
-                        $status = $freshData['status'] ?? 0;
-                    }
-                } catch (\Exception $e) {
-                    // Use cached data on error
-                }
-            }
+            $status = $data['status'] ?? 0;
 
             // Ready - no info needed
             if ($status === BunnyStreamState::STATUS_READY) {
