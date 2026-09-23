@@ -310,6 +310,12 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                         throw new \Exception("A video named '{$filename}' already exists in this collection. Please use a different filename.");
                     }
 
+                    // Check if a Kirby file with this name already exists
+                    $existingFile = $parent->file($filename);
+                    if ($existingFile) {
+                        throw new \Exception("A file named '{$filename}' already exists on this page. Please use a different filename or delete the existing file first.");
+                    }
+
                     // Create video on Bunny
                     $video = $client->createVideo($filename, $collectionId);
 
