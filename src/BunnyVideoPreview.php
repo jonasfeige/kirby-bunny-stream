@@ -61,7 +61,15 @@ class BunnyVideoPreview extends FilePreview
 
                     // Update stored metadata if status changed to ready
                     if ($status === BunnyStreamState::STATUS_READY) {
-                        $file->update(['bunnydata' => json_encode($freshData)]);
+                        try {
+                            // Get fresh file reference to avoid "immutable" error
+                            $freshFile = $file->parent()->file($file->filename());
+                            if ($freshFile) {
+                                $freshFile->update(['bunnydata' => json_encode($freshData)]);
+                            }
+                        } catch (\Exception $e) {
+                            // Silently fail - data will be refreshed next time
+                        }
                     }
                 }
             } catch (\Exception $e) {

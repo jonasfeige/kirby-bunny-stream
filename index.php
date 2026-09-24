@@ -112,7 +112,15 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                 if ($freshData && isset($freshData['status'])) {
                     // Update stored metadata if status changed
                     if ($freshData['status'] !== $status) {
-                        $this->update(['bunnydata' => json_encode($freshData)]);
+                        try {
+                            // Get fresh file reference to avoid "immutable" error
+                            $freshFile = $this->parent()->file($this->filename());
+                            if ($freshFile) {
+                                $freshFile->update(['bunnydata' => json_encode($freshData)]);
+                            }
+                        } catch (\Exception $e) {
+                            // Silently fail - data will be refreshed next time
+                        }
                     }
                 }
             } catch (\Exception $e) {
