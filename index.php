@@ -130,7 +130,6 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
 
         'bunnyData' => function (): array {
             /** @var File $this */
-            $this->bunnyRefreshIfNeeded();
             $data = $this->content()->bunnydata()->value();
             return $data ? json_decode($data, true) : [];
         },
