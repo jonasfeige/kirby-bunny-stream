@@ -75,7 +75,6 @@ src/
   BunnyStreamState.php        # State flags to prevent re-entrant processing
   BunnyVideoPreview.php       # Panel file preview (accepts, props, details)
   VideoUploader.php           # Upload logic, collection resolution
-  Webhook.php                 # Optional webhook handler for instant updates
   components/
     BunnyVideoPreview.vue     # Vue component for Panel preview
     BunnyVideoUpload.vue      # Vue component for direct TUS upload section
@@ -126,7 +125,7 @@ Both upload methods produce identical file records. Users can have both methods 
 
 ### Status Polling (Lazy)
 
-Without webhooks, status updates happen lazily:
+Status updates happen lazily:
 - `bunnyThumbnail()` checks stored status
 - If not ready (status !== 4), polls Bunny API
 - Updates `bunnydata` if status changed to ready
@@ -201,7 +200,6 @@ The `BunnyStreamState::$processing` flag prevents re-entrant calls. If you see d
     'apiKey' => '...',           // Required: Bunny API key
     'libraryId' => '...',        // Required: Video library ID
     'cdnHostname' => '...',      // Required: e.g., vz-xxx.b-cdn.net
-    'webhookSecret' => null,     // Optional: for webhook verification
     'collectionPrefix' => null,  // Optional: prefix for collection names (see below)
 ]
 ```
@@ -249,6 +247,6 @@ Duplicate detection (same filename) operates within each collection:
 ## TODO / Future Improvements
 
 - [ ] Support token authentication for private videos
-- [ ] Add encoding progress indicator (requires webhooks or polling)
+- [ ] Add encoding progress indicator
 - [ ] Consider adding `file.update:after` hook for re-uploading replaced videos
 - [ ] Add CLI command for bulk migration of existing videos

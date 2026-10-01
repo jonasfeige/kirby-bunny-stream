@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2026-10-01
+
+### Removed
+- Webhook functionality: removed `webhookSecret` config option, webhook route, and `Webhook.php` class
+- Orphaned `bunnyRefreshIfNeeded()` method (logic now integrated into `bunnyData()`)
+
+### Changed
+- Simplified status polling: `bunnyData()` fetches fresh data from Bunny API when not ready, without persisting (avoids immutable errors)
+
 ## [1.2.4] - 2026-09-24
 
 ### Fixed

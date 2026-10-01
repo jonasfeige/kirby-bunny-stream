@@ -39,7 +39,6 @@ return [
         'apiKey' => 'your-bunny-api-key',       // Required
         'libraryId' => 'your-library-id',        // Required
         'cdnHostname' => 'vz-xxx.b-cdn.net',     // Required: from Bunny dashboard
-        'webhookSecret' => null,                 // Optional
         'collectionPrefix' => null,              // Optional: see Collections section
     ],
 ];
@@ -52,7 +51,6 @@ return [
 | `apiKey` | string | `null` | Bunny Stream API key (required) |
 | `libraryId` | string | `null` | Video library ID (required) |
 | `cdnHostname` | string | `null` | CDN hostname from Bunny dashboard (required) |
-| `webhookSecret` | string | `null` | Webhook signature verification secret |
 | `collectionPrefix` | string\|Closure | `null` | Prefix for Bunny collection names (see below) |
 
 ### Collections
@@ -312,16 +310,6 @@ The `files/bunny-video-fields` blueprint includes the required hidden fields for
 The plugin includes a custom Panel file preview that shows:
 - **Processing**: Spinner with current status
 - **Ready**: Embedded video player
-
-## Webhook Setup (Optional)
-
-For instant metadata updates when encoding completes:
-
-1. In Bunny dashboard, go to Stream > Your Library > Webhooks
-2. Add webhook URL: `https://yoursite.com/bunny-stream/webhook`
-3. Copy the webhook secret to your config
-
-Without webhooks, metadata updates lazily when the file is accessed in the Panel.
 
 ## License
 

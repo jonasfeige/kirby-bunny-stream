@@ -16,7 +16,6 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
         'apiKey' => null,
         'libraryId' => null,
         'cdnHostname' => null,
-        'webhookSecret' => null,
         // Optional prefix for collection names. Can be:
         // - null: no prefix (default)
         // - string: static prefix (e.g., 'my-site')
@@ -86,52 +85,31 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
             return $this->content()->bunnyvideoid()->value() ?: null;
         },
 
-        'bunnyRefreshIfNeeded' => function (): void {
+        'bunnyData' => function (): array {
             /** @var File $this */
+            $data = $this->content()->bunnydata()->value();
+            $decoded = $data ? json_decode($data, true) : [];
+            $status = $decoded['status'] ?? 0;
+
+            // Already ready or error - return cached
+            if ($status === BunnyStreamState::STATUS_READY || $status >= BunnyStreamState::STATUS_ERROR) {
+                return $decoded;
+            }
+
+            // Not ready - try to refresh from Bunny API (read-only, no persistence)
             $videoId = $this->bunnyVideoId();
             if (!$videoId) {
-                return;
-            }
-
-            $bunnyData = $this->content()->bunnydata()->value();
-            $data = $bunnyData ? json_decode($bunnyData, true) : [];
-            $status = $data['status'] ?? 0;
-
-            // Already ready, no refresh needed
-            if ($status === BunnyStreamState::STATUS_READY) {
-                return;
-            }
-
-            // Error states - don't keep polling
-            if ($status >= BunnyStreamState::STATUS_ERROR) {
-                return;
+                return $decoded;
             }
 
             try {
                 $freshData = BunnyStreamClient::instance()->getVideo($videoId);
                 if ($freshData && isset($freshData['status'])) {
-                    // Update stored metadata if status changed
-                    if ($freshData['status'] !== $status) {
-                        try {
-                            // Get fresh file reference to avoid "immutable" error
-                            $freshFile = $this->parent()->file($this->filename());
-                            if ($freshFile) {
-                                $freshFile->update(['bunnydata' => json_encode($freshData)]);
-                            }
-                        } catch (\Exception $e) {
-                            // Silently fail - data will be refreshed next time
-                        }
-                    }
+                    return $freshData;
                 }
-            } catch (\Exception $e) {
-                // Silently fail, use cached data
-            }
-        },
+            } catch (\Exception $e) {}
 
-        'bunnyData' => function (): array {
-            /** @var File $this */
-            $data = $this->content()->bunnydata()->value();
-            return $data ? json_decode($data, true) : [];
+            return $decoded;
         },
 
         'bunnyWidth' => function (): ?int {
@@ -264,16 +242,6 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
             }
             return $videos;
         },
-    ],
-
-    'routes' => [
-        [
-            'pattern' => 'bunny-stream/webhook',
-            'method' => 'POST',
-            'action' => function () {
-                return \KirbyBunny\Stream\Webhook::handle();
-            },
-        ],
     ],
 
     'api' => [
