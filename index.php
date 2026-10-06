@@ -96,7 +96,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                 return $decoded;
             }
 
-            // Not ready - try to refresh from Bunny API (read-only, no persistence)
+            // Not ready - fetch from Bunny API
             $videoId = $this->bunnyVideoId();
             if (!$videoId) {
                 return $decoded;
@@ -104,12 +104,41 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
 
             try {
                 $freshData = BunnyStreamClient::instance()->getVideo($videoId);
-                if ($freshData && isset($freshData['status'])) {
+                if ($freshData && isset($freshData['status']) && $freshData['status'] !== $status) {
+                    // Persist by writing directly to filesystem (bypasses immutable check)
+                    $this->bunnyPersistData($freshData);
                     return $freshData;
                 }
             } catch (\Exception $e) {}
 
             return $decoded;
+        },
+
+        'bunnyPersistData' => function (array $data): void {
+            /** @var File $this */
+            try {
+                // Build content file path manually (e.g., video.mp4.txt)
+                $filename = $this->filename();
+                $contentFile = $this->parent()->root() . '/' . $filename . '.txt';
+
+                if (!file_exists($contentFile)) {
+                    return;
+                }
+
+                $content = file_get_contents($contentFile);
+                $encoded = json_encode($data);
+
+                // Replace existing Bunnydata line or append
+                if (preg_match('/^Bunnydata:.*$/m', $content)) {
+                    $content = preg_replace('/^Bunnydata:.*$/m', "Bunnydata: {$encoded}", $content);
+                } else {
+                    $content .= "\n\n----\n\nBunnydata: {$encoded}";
+                }
+
+                file_put_contents($contentFile, $content);
+            } catch (\Exception $e) {
+                // Silently fail - will retry next request
+            }
         },
 
         'bunnyWidth' => function (): ?int {
