@@ -6,6 +6,10 @@ declare(strict_types=1);
 
 use Kirby\Cms\App as Kirby;
 use Kirby\Cms\File;
+use Kirby\Exception\DuplicateException;
+use Kirby\Exception\InvalidArgumentException;
+use Kirby\Exception\LogicException;
+use Kirby\Exception\NotFoundException;
 use KirbyBunny\Stream\BunnyStreamClient;
 use KirbyBunny\Stream\BunnyStreamState;
 use KirbyBunny\Stream\BunnyVideoPreview;
@@ -287,7 +291,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                     $collectionOption = $request->body()->get('collection');
 
                     if (!$filename) {
-                        throw new \Exception('Filename is required');
+                        throw new InvalidArgumentException('Filename is required');
                     }
 
                     // Resolve parent
@@ -297,7 +301,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                         // Use kirby()->page() which finds both published and draft pages
                         $parent = kirby()->page($parentId);
                         if (!$parent) {
-                            throw new \Exception('Parent page not found');
+                            throw new NotFoundException('Parent page not found');
                         }
                     }
 
@@ -316,20 +320,20 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                     // Check if a video with this title already exists in the Bunny collection
                     $existingVideo = $client->findVideoByTitle($filename, $collectionId);
                     if ($existingVideo) {
-                        throw new \Exception("A video named '{$filename}' already exists in this collection. Please use a different filename.");
+                        throw new DuplicateException("A video named '{$filename}' already exists in this collection. Please use a different filename.");
                     }
 
                     // Check if a Kirby file with this name already exists
                     $existingFile = $parent->file($filename);
                     if ($existingFile) {
-                        throw new \Exception("A file named '{$filename}' already exists on this page. Please use a different filename or delete the existing file first.");
+                        throw new DuplicateException("A file named '{$filename}' already exists on this page. Please use a different filename or delete the existing file first.");
                     }
 
                     // Create video on Bunny
                     $video = $client->createVideo($filename, $collectionId);
 
                     if (!isset($video['guid'])) {
-                        throw new \Exception('Failed to create video on Bunny');
+                        throw new LogicException('Failed to create video on Bunny');
                     }
 
                     $videoId = $video['guid'];
@@ -357,7 +361,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                     $parentId = $request->body()->get('parentId');
 
                     if (!$videoId || !$filename) {
-                        throw new \Exception('videoId and filename are required');
+                        throw new InvalidArgumentException('videoId and filename are required');
                     }
 
                     // Resolve parent
@@ -367,7 +371,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                         // Use kirby()->page() which finds both published and draft pages
                         $parent = kirby()->page($parentId);
                         if (!$parent) {
-                            throw new \Exception('Parent page not found');
+                            throw new NotFoundException('Parent page not found');
                         }
                     }
 
@@ -401,7 +405,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                     $file = $parent->file($filename);
 
                     if (!$file) {
-                        throw new \Exception('Failed to create file');
+                        throw new LogicException('Failed to create file');
                     }
 
                     return [
