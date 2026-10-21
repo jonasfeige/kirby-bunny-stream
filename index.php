@@ -7,6 +7,7 @@ declare(strict_types=1);
 use Kirby\Cms\App as Kirby;
 use Kirby\Cms\File;
 use Kirby\Exception\DuplicateException;
+use Kirby\Exception\Exception as KirbyException;
 use Kirby\Exception\InvalidArgumentException;
 use Kirby\Exception\LogicException;
 use Kirby\Exception\NotFoundException;
@@ -14,6 +15,25 @@ use KirbyBunny\Stream\BunnyStreamClient;
 use KirbyBunny\Stream\BunnyStreamState;
 use KirbyBunny\Stream\BunnyVideoPreview;
 use KirbyBunny\Stream\VideoUploader;
+
+/**
+ * Wrap an API route action so that any non-Kirby exception is rethrown as a
+ * Kirby exception. Kirby's API only exposes messages of Kirby\Exception\Exception
+ * subclasses when debug mode is off; everything else becomes a generic
+ * "unexpected error". Our routes return intentional, user-facing messages.
+ */
+function bunny_api_route(callable $action): callable
+{
+    return function () use ($action) {
+        try {
+            return $action();
+        } catch (KirbyException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            throw new KirbyException(message: $e->getMessage(), previous: $e);
+        }
+    };
+}
 
 Kirby::plugin('jonasfeige/kirby-bunny-stream', [
     'options' => [
@@ -282,7 +302,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                         [
                 'pattern' => 'bunny-stream/init-upload',
                 'method' => 'POST',
-                'action' => function () {
+                'action' => bunny_api_route(function () {
                     $kirby = kirby();
                     $request = $kirby->request();
                     $filename = $request->body()->get('filename');
@@ -346,12 +366,12 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                         'collectionId' => $collectionId,
                         'tusCredentials' => $tusCredentials,
                     ];
-                },
+                }),
             ],
             [
                 'pattern' => 'bunny-stream/finalize-upload',
                 'method' => 'POST',
-                'action' => function () {
+                'action' => bunny_api_route(function () {
                     $kirby = kirby();
                     $request = $kirby->request();
                     $videoId = $request->body()->get('videoId');
@@ -415,7 +435,7 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
                             'id' => $file->id(),
                         ],
                     ];
-                },
+                }),
             ],
             [
                 'pattern' => 'bunny-stream/cancel-upload',
