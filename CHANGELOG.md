@@ -5,10 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.6] - 2026-10-21
+## [1.2.7] - 2026-10-21
 
 ### Fixed
 - Validation errors from the direct upload section (e.g. "A file named '...' already exists") were hidden behind Kirby's generic "An unexpected error occurred" message when `debug` is off. API routes now throw Kirby exception classes so the real message is shown in production.
+
+## [1.2.6] - 2026-10-06
+
+### Fixed
+- Persist `bunnydata` to the filesystem when a video's status changes, so the Panel preview no longer re-polls Bunny on every load once a video is ready
 
 ## [1.2.5] - 2026-10-01
 
