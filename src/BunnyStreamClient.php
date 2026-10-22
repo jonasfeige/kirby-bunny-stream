@@ -58,6 +58,22 @@ class BunnyStreamClient
         return "https://{$this->getCdnHostname()}{$path}";
     }
 
+    /**
+     * Display dimensions for a Bunny video record.
+     * Bunny reports the encoded frame size plus a separate rotation;
+     * ±90 / 270 means the frame is shown rotated, so width and height swap.
+     *
+     * @return array{0: ?int, 1: ?int} [width, height]
+     */
+    public static function displayDimensions(array $data): array
+    {
+        $width = isset($data['width']) ? (int) $data['width'] : null;
+        $height = isset($data['height']) ? (int) $data['height'] : null;
+        $rotation = abs((int) ($data['rotation'] ?? 0)) % 180;
+
+        return $rotation === 90 ? [$height, $width] : [$width, $height];
+    }
+
     public function getLibraryId(): string
     {
         return $this->libraryId;

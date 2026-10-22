@@ -43,8 +43,9 @@ class BunnyVideoPreview extends FilePreview
 
         $status = $bunnyData['status'] ?? 0;
         $progress = $bunnyData['encodeProgress'] ?? null;
-        $width = $bunnyData['width'] ?? 1920;
-        $height = $bunnyData['height'] ?? 1080;
+        [$width, $height] = BunnyStreamClient::displayDimensions($bunnyData);
+        $width ??= 1920;
+        $height ??= 1080;
 
         $availableResolutions = $bunnyData['availableResolutions'] ?? '';
 
@@ -55,8 +56,9 @@ class BunnyVideoPreview extends FilePreview
                 if ($freshData && isset($freshData['status'])) {
                     $status = $freshData['status'];
                     $progress = $freshData['encodeProgress'] ?? $progress;
-                    $width = $freshData['width'] ?? $width;
-                    $height = $freshData['height'] ?? $height;
+                    [$freshWidth, $freshHeight] = BunnyStreamClient::displayDimensions($freshData);
+                    $width = $freshWidth ?? $width;
+                    $height = $freshHeight ?? $height;
                     $availableResolutions = $freshData['availableResolutions'] ?? $availableResolutions;
 
                     // Persist updated data if status changed to ready
@@ -112,8 +114,7 @@ class BunnyVideoPreview extends FilePreview
         $details = [];
 
         // Dimensions
-        $width = $bunnyData['width'] ?? null;
-        $height = $bunnyData['height'] ?? null;
+        [$width, $height] = BunnyStreamClient::displayDimensions($bunnyData);
         if ($width && $height) {
             $details[] = [
                 'title' => 'Dimensions',

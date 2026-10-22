@@ -167,12 +167,18 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
 
         'bunnyWidth' => function (): ?int {
             /** @var File $this */
-            return $this->bunnyData()['width'] ?? null;
+            return BunnyStreamClient::displayDimensions($this->bunnyData())[0];
         },
 
         'bunnyHeight' => function (): ?int {
             /** @var File $this */
-            return $this->bunnyData()['height'] ?? null;
+            return BunnyStreamClient::displayDimensions($this->bunnyData())[1];
+        },
+
+        'bunnyIsRotated' => function (): bool {
+            /** @var File $this */
+            $rotation = abs((int) ($this->bunnyData()['rotation'] ?? 0)) % 180;
+            return $rotation === 90;
         },
 
         'bunnyAspectRatio' => function (): ?float {

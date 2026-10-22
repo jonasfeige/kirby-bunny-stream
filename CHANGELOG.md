@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.9] - 2026-10-22
+
+### Fixed
+- Rotated videos (e.g. portrait clips from phones, which Bunny stores as a landscape frame plus a `rotation` of ±90°) reported the encoded instead of the display dimensions. `bunnyWidth()`, `bunnyHeight()`, `bunnyAspectRatio()`, the Panel preview aspect ratio and the "Dimensions" detail now honour Bunny's `rotation` field.
+
+### Added
+- `bunnyIsRotated()` file method
+
 ## [1.2.8] - 2026-10-21
 
 ### Fixed

@@ -277,9 +277,10 @@ The `files/bunny-video-fields` blueprint includes the required hidden fields for
 | `$file->bunnyHlsUrl()` | `?string` | HLS stream URL |
 | `$file->bunnyMp4Url($resolution)` | `?string` | Direct MP4 URL (480, 720, 1080, etc.) |
 | `$file->bunnyThumbnail()` | `?string` | Thumbnail URL (custom or auto) |
-| `$file->bunnyWidth()` | `?int` | Video width |
-| `$file->bunnyHeight()` | `?int` | Video height |
-| `$file->bunnyAspectRatio()` | `float` | Width / height (defaults to 16/9) |
+| `$file->bunnyWidth()` | `?int` | Display width (Bunny `rotation` applied) |
+| `$file->bunnyHeight()` | `?int` | Display height (Bunny `rotation` applied) |
+| `$file->bunnyIsRotated()` | `bool` | Video is stored rotated by ±90° (e.g. portrait phone clips)? |
+| `$file->bunnyAspectRatio()` | `?float` | Display width / height, `null` until dimensions are known |
 | `$file->bunnyDuration()` | `?int` | Video length in seconds |
 | `$file->bunnyStatus()` | `int` | Bunny status code (0-6) |
 | `$file->bunnyData()` | `array` | Raw Bunny metadata |
