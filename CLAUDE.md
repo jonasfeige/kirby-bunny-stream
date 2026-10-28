@@ -201,6 +201,7 @@ The `BunnyStreamState::$processing` flag prevents re-entrant calls. If you see d
     'libraryId' => '...',        // Required: Video library ID
     'cdnHostname' => '...',      // Required: e.g., vz-xxx.b-cdn.net
     'collectionPrefix' => null,  // Optional: prefix for collection names (see below)
+    'thumbnailTime' => null,     // Optional: poster frame in ms, sent on video creation (0 = first frame)
 ]
 ```
 

@@ -96,6 +96,12 @@ class BunnyStreamClient
                 $payload['collectionId'] = $collectionId;
             }
 
+            // Frame (in ms) Bunny uses for the main thumbnail / poster
+            $thumbnailTime = App::instance()->option('jonasfeige.kirby-bunny-stream.thumbnailTime');
+            if ($thumbnailTime !== null) {
+                $payload['thumbnailTime'] = (int) $thumbnailTime;
+            }
+
             $response = $this->http->post(
                 "library/{$this->libraryId}/videos",
                 ['json' => $payload]

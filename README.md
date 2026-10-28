@@ -40,6 +40,7 @@ return [
         'libraryId' => 'your-library-id',        // Required
         'cdnHostname' => 'vz-xxx.b-cdn.net',     // Required: from Bunny dashboard
         'collectionPrefix' => null,              // Optional: see Collections section
+        'thumbnailTime' => null,                 // Optional: poster frame in ms (0 = first frame)
     ],
 ];
 ```
@@ -52,6 +53,7 @@ return [
 | `libraryId` | string | `null` | Video library ID (required) |
 | `cdnHostname` | string | `null` | CDN hostname from Bunny dashboard (required) |
 | `collectionPrefix` | string\|Closure | `null` | Prefix for Bunny collection names (see below) |
+| `thumbnailTime` | int | `null` | Video time in milliseconds for the thumbnail/poster frame. `0` uses the first frame, so poster and playback start match. `null` keeps Bunny's default. Applies to new uploads only. |
 
 ### Collections
 

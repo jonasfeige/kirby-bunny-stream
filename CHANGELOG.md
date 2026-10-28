@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-10-28
+
+### Added
+- `thumbnailTime` config option (milliseconds). Sent to Bunny when a video is created, so the thumbnail/poster can be pinned to a specific frame. Set it to `0` to make the poster the first frame. Applies to new uploads only.
+
 ## [1.2.9] - 2026-10-22
 
 ### Fixed
