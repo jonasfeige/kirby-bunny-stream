@@ -9,7 +9,7 @@ A Kirby CMS plugin for seamless video hosting via [Bunny Stream](https://bunny.n
 - **Panel preview** – Custom file preview shows embedded player when ready, processing status otherwise
 - **Lazy status polling** – Automatically checks encoding status without requiring webhooks
 - **HLS streaming** – Serve adaptive bitrate video via Bunny's global CDN
-- **Custom thumbnails** – Override auto-generated thumbnails with your own images
+- **Stored thumbnails** – Optionally keep Bunny's thumbnail as a Kirby image file (srcset, lazy loading, no CDN round trip)
 - **Extensible blueprints** – Add custom fields while keeping core functionality
 
 ## Requirements
@@ -41,6 +41,7 @@ return [
         'cdnHostname' => 'vz-xxx.b-cdn.net',     // Required: from Bunny dashboard
         'collectionPrefix' => null,              // Optional: see Collections section
         'thumbnailTime' => null,                 // Optional: poster frame in ms (0 = first frame)
+        'storeThumbnails' => false,              // Optional: keep the thumbnail as a Kirby file, see Stored thumbnails
     ],
 ];
 ```
@@ -54,6 +55,7 @@ return [
 | `cdnHostname` | string | `null` | CDN hostname from Bunny dashboard (required) |
 | `collectionPrefix` | string\|Closure | `null` | Prefix for Bunny collection names (see below) |
 | `thumbnailTime` | int | `null` | Video time in milliseconds for the thumbnail/poster frame. `0` uses the first frame, so poster and playback start match. `null` keeps Bunny's default. Applies to new uploads only. |
+| `storeThumbnails` | bool | `false` | Download the video's thumbnail into a Kirby file (template `bunny-thumbnail`) next to the video the first time it is requested after encoding finished. See [Stored thumbnails](#stored-thumbnails). |
 
 ### Collections
 
@@ -175,9 +177,67 @@ Both upload methods produce identical results – use whichever suits your needs
 | Standard (files section) | Small files, familiar UX | Browser → Server → Bunny |
 | Direct (bunny-video-upload) | Large files (100MB+) | Browser → Bunny (TUS) |
 
-### Custom Thumbnails
+### Stored thumbnails
 
-The default blueprint includes a `customthumbnail` field. Upload an image to override Bunny's auto-generated thumbnail. The `bunnyThumbnail()` method automatically returns the custom thumbnail if set.
+Bunny serves one full-resolution `thumbnail.jpg` per video and cannot resize it. With
+`'storeThumbnails' => true` the plugin downloads that image once and keeps it as a regular
+Kirby image file, so it gets srcsets, lazy loading and your thumbs pipeline like any other
+image:
+
+- The file is created the first time a ready video's thumbnail is requested (Panel preview,
+  status polling or a frontend render calling `bunnyThumbnail()` / `bunnyThumbnailFile()`),
+  so videos that were already encoded get theirs on their next request. No webhook, no cron.
+- It lands next to the video as `<video name>-thumbnail.jpg` with the template
+  `bunny-thumbnail`, linked from the video by UUID (hidden field `bunnythumbnail`). Renaming
+  either file keeps the pair.
+- Deleting the video deletes its thumbnail. Deleting only the thumbnail makes the plugin
+  fetch it again on the next request (the way to refresh it after changing the frame on Bunny).
+- Editors never have to see these files: a files section or field lists them only when it
+  asks for `template: bunny-thumbnail`. Note that a files section **without** a `template`
+  filter lists every file of the page, thumbnails included, so filter your sections.
+
+Show them if you want to:
+
+```yaml
+sections:
+  thumbnails:
+    type: files
+    template: bunny-thumbnail
+    create: false
+```
+
+Use them in templates:
+
+```php
+<?php if ($still = $video->bunnyThumbnailFile()): ?>
+    <img src="<?= $still->url() ?>" srcset="<?= $still->srcset([320, 640, 960]) ?>" alt="">
+<?php endif ?>
+```
+
+`bunnyThumbnail()` keeps returning a URL string and prefers the stored file, so existing
+templates and the Panel preview benefit without changes. The default blueprint ships in
+`blueprints/files/bunny-thumbnail.yml`; override it with your own
+`site/blueprints/files/bunny-thumbnail.yml`.
+
+#### Replacing the removed `customthumbnail` field (2.0)
+
+Versions before 2.0 shipped a `customthumbnail` files field on `bunny-video`. If you want an
+editor-picked override, add a files field to your own blueprint and read it in your template
+before falling back to the plugin:
+
+```yaml
+# site/blueprints/files/bunny-video.yml
+extends: files/bunny-video-fields
+title: Video
+fields:
+  poster:
+    type: files
+    max: 1
+```
+
+```php
+$poster = $video->poster()->toFile() ?? $video->bunnyThumbnailFile();
+```
 
 ### Selecting Videos
 
@@ -278,7 +338,8 @@ The `files/bunny-video-fields` blueprint includes the required hidden fields for
 | `$file->bunnyVideoId()` | `?string` | Bunny video GUID |
 | `$file->bunnyHlsUrl()` | `?string` | HLS stream URL |
 | `$file->bunnyMp4Url($resolution)` | `?string` | Direct MP4 URL (480, 720, 1080, etc.) |
-| `$file->bunnyThumbnail()` | `?string` | Thumbnail URL (custom or auto) |
+| `$file->bunnyThumbnailFile()` | `?File` | Stored thumbnail file (option `storeThumbnails`), created on first request once the video is ready |
+| `$file->bunnyThumbnail()` | `string\|false` | Thumbnail URL (stored file, else CDN) |
 | `$file->bunnyWidth()` | `?int` | Display width (Bunny `rotation` applied) |
 | `$file->bunnyHeight()` | `?int` | Display height (Bunny `rotation` applied) |
 | `$file->bunnyIsRotated()` | `bool` | Video is stored rotated by ±90° (e.g. portrait phone clips)? |

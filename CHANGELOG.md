@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-10-29
+
+### Added
+- `storeThumbnails` option: Bunny's thumbnail is downloaded once into a Kirby file (template `bunny-thumbnail`, `<video>-thumbnail.jpg`, linked by UUID in the new hidden `bunnythumbnail` field) so it gets srcsets and lazy loading. Backfills videos that were already ready; refetched when the file is deleted; deleted with the video.
+- `$file->bunnyThumbnailFile()`.
+- PHPUnit test suite (`composer install && vendor/bin/phpunit`).
+
+### Changed
+- `$file->bunnyThumbnail()` and the Panel preview prefer the stored file.
+
+### Removed
+- `customthumbnail` field and its lookup (**breaking**). Replace it with a files field on your own `bunny-video` blueprint; see README "Stored thumbnails".
+
 ## [1.3.0] - 2026-10-28
 
 ### Added
