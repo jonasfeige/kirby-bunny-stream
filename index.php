@@ -14,6 +14,7 @@ use Kirby\Exception\NotFoundException;
 use KirbyBunny\Stream\BunnyStreamClient;
 use KirbyBunny\Stream\BunnyStreamState;
 use KirbyBunny\Stream\BunnyVideoPreview;
+use KirbyBunny\Stream\ThumbnailStore;
 use KirbyBunny\Stream\VideoUploader;
 
 /**
@@ -46,11 +47,16 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
         // - Closure: dynamic prefix, receives $parent (Page|Site) as argument
         //   Example: function ($parent) { return site()->title()->value(); }
         'collectionPrefix' => null,
+        // Keep Bunny's thumbnail as a Kirby image file next to the video (template
+        // `bunny-thumbnail`, `<video name>-thumbnail.jpg`), downloaded once the video is ready
+        // and first requested. See src/ThumbnailStore.php.
+        'storeThumbnails' => false,
     ],
 
     'blueprints' => [
         'files/bunny-video' => __DIR__ . '/blueprints/files/bunny-video.yml',
         'files/bunny-video-fields' => __DIR__ . '/blueprints/files/bunny-video-fields.yml',
+        'files/bunny-thumbnail' => __DIR__ . '/blueprints/files/bunny-thumbnail.yml',
         'fields/bunnyvideo' => __DIR__ . '/blueprints/fields/bunnyvideo.yml',
     ],
 
@@ -63,11 +69,23 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
     ],
 
     'fileMethods' => [
+        /**
+         * The stored thumbnail file (option `storeThumbnails`), created on first request once
+         * the video is ready; null when the option is off, the video is not ready or the
+         * download failed.
+         */
+        'bunnyThumbnailFile' => function (): ?File {
+            /** @var File $this */
+            return ThumbnailStore::ensure($this);
+        },
+
+        /**
+         * Thumbnail URL: the stored file when there is one, else Bunny's CDN thumbnail.
+         */
         'bunnyThumbnail' => function (): string|false {
             /** @var File $this */
-            $custom = $this->content()->customthumbnail()->toFiles()->first();
-            if ($custom) {
-                return $custom->url();
+            if ($stored = $this->bunnyThumbnailFile()) {
+                return $stored->url();
             }
 
             $videoId = $this->bunnyVideoId();
@@ -228,15 +246,6 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
 
         'bunnyPanelImage' => function (): array {
             /** @var File $this */
-            $custom = $this->content()->customthumbnail()->toFiles()->first();
-            if ($custom) {
-                return [
-                    'src' => $custom->url(),
-                    'back' => 'black',
-                    'cover' => true,
-                ];
-            }
-
             if ($this->isBunnyReady()) {
                 $thumbnail = $this->bunnyThumbnail();
                 if ($thumbnail) {
@@ -529,6 +538,9 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
             } catch (\Throwable $e) {
                 return;
             }
+
+            // The stored thumbnail goes with its video (before the Bunny call, which may return early)
+            ThumbnailStore::delete($file);
 
             $videoId = $file->content()->bunnyvideoid()->value();
             $collectionId = $file->content()->bunnycollectionid()->value();

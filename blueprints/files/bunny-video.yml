@@ -28,14 +28,3 @@ accept:
   mime:
     - video/*
     - image/*
-
-fields:
-  customthumbnail:
-    type: files
-    label: Custom Thumbnail
-    help: Override the auto-generated thumbnail
-    max: 1
-    image:
-      cover: true
-    uploads:
-      template: image

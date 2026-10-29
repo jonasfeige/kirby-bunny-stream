@@ -39,3 +39,7 @@ fields:
 
   bunnydata:
     type: hidden
+
+  # UUID of the stored thumbnail file (option storeThumbnails), written by the plugin
+  bunnythumbnail:
+    type: hidden

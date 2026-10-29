@@ -1,0 +1,23 @@
+# Stored video thumbnail
+#
+# Created by the plugin when the `storeThumbnails` option is on: Bunny's thumbnail.jpg is
+# downloaded next to its video as `<video name>-thumbnail.jpg` the first time a ready video's
+# thumbnail is requested. Editors never need to manage these files; a files section or
+# field only lists them when it asks for `template: bunny-thumbnail` (and a files section
+# WITHOUT a template filter lists every file, these included).
+#
+# To customize, create your own site/blueprints/files/bunny-thumbnail.yml.
+
+title: Bunny Thumbnail
+
+image:
+  cover: true
+
+accept:
+  mime:
+    - image/jpeg
+
+fields:
+  # UUID of the video this thumbnail belongs to, written by the plugin
+  bunnyvideo:
+    type: hidden

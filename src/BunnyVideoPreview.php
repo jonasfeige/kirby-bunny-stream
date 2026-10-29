@@ -81,7 +81,7 @@ class BunnyVideoPreview extends FilePreview
             try {
                 $client = BunnyStreamClient::instance();
                 $libraryId = $client->getLibraryId();
-                $thumbnailUrl = $client->cdnUrl("/{$videoId}/thumbnail.jpg");
+                $thumbnailUrl = $file->bunnyThumbnail() ?: null; // stored file first, else CDN
                 if ($isReady) {
                     $embedUrl = "https://player.mediadelivery.net/embed/{$libraryId}/{$videoId}?autoplay=false&loop=false&muted=false&preload=true&responsive=true";
                 }
@@ -173,12 +173,10 @@ class BunnyVideoPreview extends FilePreview
      */
     public function image(): array|null
     {
-        $videoId = $this->file->content()->bunnyvideoid()->value();
-
-        if ($videoId) {
+        if ($this->file->content()->bunnyvideoid()->value()) {
             try {
                 return [
-                    'src' => BunnyStreamClient::instance()->cdnUrl("/{$videoId}/thumbnail.jpg"),
+                    'src' => $this->file->bunnyThumbnail() ?: null, // stored file first, else CDN
                     'back' => 'black',
                     'ratio' => '16/9'
                 ];
