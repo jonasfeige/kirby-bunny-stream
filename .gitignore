@@ -9,3 +9,4 @@ composer.lock
 
 # Kirby core installed by composer for the test suite
 /kirby/
+.phpunit.result.cache

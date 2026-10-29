@@ -145,7 +145,7 @@ Stored in file's content (txt file):
 Bunnyvideoid: abc-123-def
 Bunnycollectionid: xyz-789
 Bunnydata: {"status":4,"width":1920,"height":1080,...}
-Customthumbnail: - my-thumb.jpg
+Bunnythumbnail: file://abcdef1234567890   # stored thumbnail (option storeThumbnails), see src/ThumbnailStore.php
 ```
 
 ## Bunny Status Codes

@@ -222,21 +222,21 @@ templates and the Panel preview benefit without changes. The default blueprint s
 #### Replacing the removed `customthumbnail` field (2.0)
 
 Versions before 2.0 shipped a `customthumbnail` files field on `bunny-video`. If you want an
-editor-picked override, add a files field to your own blueprint and read it in your template
-before falling back to the plugin:
+editor-picked override, add the field to your own blueprint (extending the default keeps its
+preview, info and accept settings; keeping the field name keeps existing values) and read it
+in your template before falling back to the plugin:
 
 ```yaml
 # site/blueprints/files/bunny-video.yml
-extends: files/bunny-video-fields
-title: Video
+extends: files/bunny-video
 fields:
-  poster:
+  customthumbnail:
     type: files
     max: 1
 ```
 
 ```php
-$poster = $video->poster()->toFile() ?? $video->bunnyThumbnailFile();
+$poster = $video->customthumbnail()->toFile() ?? $video->bunnyThumbnailFile();
 ```
 
 ### Selecting Videos
