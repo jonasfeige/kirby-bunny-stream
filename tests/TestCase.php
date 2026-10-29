@@ -16,6 +16,8 @@ use PHPUnit\Framework\TestCase as BaseTestCase;
 abstract class TestCase extends BaseTestCase
 {
     protected string $tmp;
+    protected array $lastOptions = [];
+    private int $booted = 0;
 
     protected function setUp(): void
     {
@@ -24,9 +26,11 @@ abstract class TestCase extends BaseTestCase
 
     protected function tearDown(): void
     {
-        // Kirby's App installs Whoops error/exception handlers; PHPUnit flags tests that leave them behind
-        restore_error_handler();
-        restore_exception_handler();
+        // Every App installs Whoops error/exception handlers; PHPUnit flags tests that leave them behind
+        for (; $this->booted > 0; $this->booted--) {
+            restore_error_handler();
+            restore_exception_handler();
+        }
         Dir::remove($this->tmp);
     }
 
@@ -46,6 +50,23 @@ abstract class TestCase extends BaseTestCase
             'Bunnyvideoid: abc',
             'Bunnydata: {"status":' . $videoStatus . ',"width":1080,"height":1920,"rotation":0}',
         ]) . "\n");
+
+        return $this->boot($options);
+    }
+
+    /**
+     * A fresh App over the same roots, nothing rewritten: what the next request sees.
+     */
+    protected function reboot(): App
+    {
+        return $this->boot($this->lastOptions);
+    }
+
+    private function boot(array $options): App
+    {
+        $this->lastOptions = $options;
+        $this->booted++;
+        $content = $this->tmp . '/content';
 
         return new App([
             'roots' => [

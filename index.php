@@ -140,23 +140,30 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
 
         'bunnyPersistData' => function (array $data): void {
             /** @var File $this */
+            $this->bunnyPersistField('Bunnydata', json_encode($data));
+        },
+
+        /**
+         * Writes one field straight into the content file (e.g. video.mp4.txt), replacing the
+         * existing line or appending a new field. Bypasses File::update(), so it works from
+         * requests without a user and never writes a stale in-memory content back.
+         */
+        'bunnyPersistField' => function (string $field, string $value): void {
+            /** @var File $this */
             try {
-                // Build content file path manually (e.g., video.mp4.txt)
-                $filename = $this->filename();
-                $contentFile = $this->parent()->root() . '/' . $filename . '.txt';
+                $contentFile = $this->parent()->root() . '/' . $this->filename() . '.txt';
 
                 if (!file_exists($contentFile)) {
                     return;
                 }
 
                 $content = file_get_contents($contentFile);
-                $encoded = json_encode($data);
+                $line = "{$field}: {$value}";
 
-                // Replace existing Bunnydata line or append
-                if (preg_match('/^Bunnydata:.*$/m', $content)) {
-                    $content = preg_replace('/^Bunnydata:.*$/m', "Bunnydata: {$encoded}", $content);
+                if (preg_match('/^' . preg_quote($field, '/') . ':.*$/m', $content)) {
+                    $content = preg_replace('/^' . preg_quote($field, '/') . ':.*$/m', $line, $content);
                 } else {
-                    $content .= "\n\n----\n\nBunnydata: {$encoded}";
+                    $content .= "\n\n----\n\n{$line}";
                 }
 
                 file_put_contents($contentFile, $content);
