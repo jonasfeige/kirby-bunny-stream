@@ -7,6 +7,7 @@ namespace KirbyBunny\Stream\Tests;
 use Kirby\Cms\App;
 use Kirby\Cms\File;
 use Kirby\Filesystem\Dir;
+use KirbyBunny\Stream\BunnyStreamClient;
 use PHPUnit\Framework\TestCase as BaseTestCase;
 
 /**
@@ -17,11 +18,17 @@ abstract class TestCase extends BaseTestCase
 {
     protected string $tmp;
     protected array $lastOptions = [];
+    protected array $lastExtensions = [];
     private int $booted = 0;
 
     protected function setUp(): void
     {
         $this->tmp = sys_get_temp_dir() . '/bunny-' . uniqid();
+
+        // The client is a process-wide singleton built from the first App's options; every test
+        // starts without one, so its own options apply
+        $instance = new \ReflectionProperty(BunnyStreamClient::class, 'instance');
+        $instance->setValue(null, null);
     }
 
     protected function tearDown(): void
@@ -34,24 +41,35 @@ abstract class TestCase extends BaseTestCase
         Dir::remove($this->tmp);
     }
 
-    protected function app(array $options = [], string $videoStatus = '4', string $parent = 'page'): App
+    /**
+     * @param array $extensions  extra App props, e.g. ['hooks' => [...]]
+     * @param bool  $multilang   two languages (en default, de); content files are then video.mp4.en.txt
+     */
+    protected function app(array $options = [], string $videoStatus = '4', string $parent = 'page', array $extensions = [], bool $multilang = false): App
     {
         $content = $this->tmp . '/content';
         $folder = $parent === 'site' ? $content : $content . '/test';
         Dir::make($folder);
+        $suffix = $multilang ? '.en.txt' : '.txt';
+
+        if ($multilang) {
+            Dir::make($this->tmp . '/site/languages');
+            file_put_contents($this->tmp . '/site/languages/en.php', "<?php return ['code' => 'en', 'default' => true, 'name' => 'English'];");
+            file_put_contents($this->tmp . '/site/languages/de.php', "<?php return ['code' => 'de', 'name' => 'Deutsch'];");
+        }
 
         if ($parent !== 'site') {
-            file_put_contents($folder . '/test.txt', "Title: Test\n");
+            file_put_contents($folder . '/test' . $suffix, "Title: Test\n");
         }
 
         file_put_contents($folder . '/video.mp4', 'x');
-        file_put_contents($folder . '/video.mp4.txt', implode("\n\n----\n\n", [
+        file_put_contents($folder . '/video.mp4' . $suffix, implode("\n\n----\n\n", [
             'Template: bunny-video',
             'Bunnyvideoid: abc',
             'Bunnydata: {"status":' . $videoStatus . ',"width":1080,"height":1920,"rotation":0}',
         ]) . "\n");
 
-        return $this->boot($options);
+        return $this->boot($options, $extensions);
     }
 
     /**
@@ -59,16 +77,17 @@ abstract class TestCase extends BaseTestCase
      */
     protected function reboot(): App
     {
-        return $this->boot($this->lastOptions);
+        return $this->boot($this->lastOptions, $this->lastExtensions);
     }
 
-    private function boot(array $options): App
+    private function boot(array $options, array $extensions = []): App
     {
         $this->lastOptions = $options;
+        $this->lastExtensions = $extensions;
         $this->booted++;
         $content = $this->tmp . '/content';
 
-        return new App([
+        return new App($extensions + [
             'roots' => [
                 'index'    => $this->tmp,
                 'content'  => $content,

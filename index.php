@@ -6,6 +6,9 @@ declare(strict_types=1);
 
 use Kirby\Cms\App as Kirby;
 use Kirby\Cms\File;
+use Kirby\Cms\Language;
+use Kirby\Content\PlainTextStorage;
+use Kirby\Content\VersionId;
 use Kirby\Exception\DuplicateException;
 use Kirby\Exception\Exception as KirbyException;
 use Kirby\Exception\InvalidArgumentException;
@@ -169,7 +172,12 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
         'bunnyPersistField' => function (string $field, string $value): void {
             /** @var File $this */
             try {
-                $contentFile = $this->parent()->root() . '/' . $this->filename() . '.txt';
+                // The default language's content file (video.mp4.txt, or video.mp4.en.txt on a
+                // multi-language site); plugin-managed fields are not translated
+                $storage = $this->storage();
+                $contentFile = $storage instanceof PlainTextStorage
+                    ? $storage->contentFile(VersionId::latest(), Language::ensure('default'))
+                    : $this->parent()->root() . '/' . $this->filename() . '.txt';
 
                 if (!file_exists($contentFile)) {
                     return;
@@ -619,6 +627,10 @@ Kirby::plugin('jonasfeige/kirby-bunny-stream', [
             } catch (\Throwable $e) {
                 // Old file might not have bunny data
             }
+
+            // The old video's stored thumbnail must not become the new video's: delete it,
+            // the dangling link is refetched once the new video is ready
+            ThumbnailStore::delete($newFile);
 
             BunnyStreamState::$processing = true;
 

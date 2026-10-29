@@ -133,18 +133,76 @@ final class ThumbnailStoreTest extends TestCase
         $this->assertFalse(ThumbnailStore::isJpeg(__FILE__));
     }
 
-    public function testEnsureLinksExistingFileOnDuplicate(): void
+    public function testEnsureDoesNotAdoptAForeignFileWithThatName(): void
     {
         $app = $this->app();
-        file_put_contents($this->thumbPath(), 'written by a parallel request');
+        file_put_contents($this->thumbPath(), 'an editor\'s own image, no bunny-thumbnail template');
         $video = $this->video($app);
+
+        $this->assertNull(ThumbnailStore::ensure($video, $this->fake()));
+        $this->assertSame('an editor\'s own image, no bunny-thumbnail template', file_get_contents($this->thumbPath()));
+        $this->assertStringNotContainsString('Bunnythumbnail', $this->videoTxt());
+    }
+
+    public function testEnsureAdoptsIdenticalFileCreatedByParallelRequest(): void
+    {
+        $app = $this->app();
+        $video = $this->video($app);
+        $video->parent()->files(); // this request's files collection, loaded before the other request finishes
+        $videoUuid = $video->uuid()->toString();
+        copy(__DIR__ . '/fixtures/thumbnail.jpg', $this->thumbPath()); // same bytes: Kirby does not raise DuplicateException
+        file_put_contents($this->thumbPath() . '.txt', "Bunnyvideo: {$videoUuid}\n\n----\n\nUuid: parallel1234567\n\n----\n\nTemplate: bunny-thumbnail\n");
 
         $thumb = ThumbnailStore::ensure($video, $this->fake());
 
         $this->assertNotNull($thumb);
-        $this->assertSame('video-thumbnail.jpg', $thumb->filename());
-        $this->assertSame('written by a parallel request', file_get_contents($this->thumbPath()));
-        $this->assertStringContainsString('Bunnythumbnail: ' . $thumb->uuid()->toString(), $this->videoTxt());
+        $this->assertSame('file://parallel1234567', $thumb->uuid()->toString());
+        $this->assertStringContainsString('Bunnythumbnail: file://parallel1234567', $this->videoTxt());
+    }
+
+    public function testEnsureReturnsNullWhenCreateFails(): void
+    {
+        $video = $this->video($this->app([], '4', 'page', ['hooks' => [
+            'file.create:before' => function () { throw new \RuntimeException('disk full'); },
+        ]]));
+
+        $this->assertNull(ThumbnailStore::ensure($video, $this->fake()));
+        $this->assertFileDoesNotExist($this->thumbPath());
+        $this->assertStringNotContainsString('Bunnythumbnail', $this->videoTxt());
+    }
+
+    public function testEnsureReturnsNullWithoutCdnCredentials(): void
+    {
+        $video = $this->video($this->app(['cdnHostname' => null]));
+
+        $this->assertNull(ThumbnailStore::ensure($video, $this->fake()));
+        $this->assertSame([], $this->calls);
+    }
+
+    public function testEnsureDoesNotRetryAFailedDownloadWithinARequest(): void
+    {
+        $video = $this->video($this->app());
+
+        ThumbnailStore::ensure($video, $this->fake(false));
+        ThumbnailStore::ensure($video, $this->fake(false));
+
+        $this->assertCount(1, $this->calls);
+    }
+
+    public function testEnsureWritesTheLinkOnMultiLanguageSites(): void
+    {
+        $video = $this->video($this->app([], '4', 'page', [], true));
+
+        $thumb = ThumbnailStore::ensure($video, $this->fake());
+
+        $this->assertNotNull($thumb);
+        $this->assertStringContainsString('Bunnythumbnail: ' . $thumb->uuid()->toString(), file_get_contents($this->tmp . '/content/test/video.mp4.en.txt'));
+        $this->assertFileDoesNotExist($this->tmp . '/content/test/video.mp4.txt');
+
+        $this->calls = [];
+        ThumbnailStore::flush();
+        ThumbnailStore::ensure($this->video($this->reboot()), $this->fake());
+        $this->assertSame([], $this->calls);
     }
 
     public function testEnsureWorksForSiteFiles(): void
@@ -176,5 +234,19 @@ final class ThumbnailStoreTest extends TestCase
         ThumbnailStore::delete($video);
 
         $this->assertInstanceOf(App::class, $video->kirby());
+    }
+
+    public function testDeleteLeavesAFileThatIsNotABunnyThumbnail(): void
+    {
+        $app = $this->app();
+        file_put_contents($this->tmp . '/content/test/own.jpg', file_get_contents(__DIR__ . '/fixtures/thumbnail.jpg'));
+        file_put_contents($this->tmp . '/content/test/own.jpg.txt', "Uuid: editorsown12345\n\n----\n\nTemplate: image\n");
+        $video = $this->video($app);
+        $video->bunnyPersistField('Bunnythumbnail', 'file://editorsown12345');
+        $video = $this->video($this->reboot());
+
+        ThumbnailStore::delete($video);
+
+        $this->assertFileExists($this->tmp . '/content/test/own.jpg');
     }
 }
