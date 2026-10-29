@@ -6,3 +6,6 @@ node_modules/
 # Composer (users install dependencies themselves)
 /vendor/
 composer.lock
+
+# Kirby core installed by composer for the test suite
+/kirby/
